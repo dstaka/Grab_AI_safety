@@ -1,15 +1,13 @@
-
-# coding: utf-8
-
-# In[32]:
-
-
 import pandas as pd
-import sys
-print(sys.version)
+
+import time
+import logging
+import logging.config
 
 
-# In[2]:
+# Set logger
+logging.config.fileConfig('./config/logging.conf', disable_existing_loggers=False)
+logger = logging.getLogger('root')
 
 
 df_agg_features=pd.read_csv('./data/agg_features_t5_190608.csv/part-00000-e288dcb3-d734-408a-9aca-1f3ebf01c79a-c000.csv')

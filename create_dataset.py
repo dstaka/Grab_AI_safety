@@ -1,21 +1,20 @@
-
-# coding: utf-8
-
-# In[1]:
-
-
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
 import pandas as pd
 import time
+import logging
+import logging.config
 import matplotlib.pyplot as plt
 get_ipython().magic('matplotlib inline')
 
 
-# In[3]:
+# Set logger
+logging.config.fileConfig('./config/logging.conf', disable_existing_loggers=False)
+logger = logging.getLogger('root')
 
 
-# Load data files
+
+## Load data files
 struct = StructType([
         StructField('bookingID', StringType(), False),
         StructField('accuracy', DoubleType(), False),
@@ -26,18 +25,13 @@ struct = StructType([
         StructField('gyrox', DoubleType(), False),
         StructField('gyroy', DoubleType(), False),
         StructField('gyroz', DoubleType(), False),
-#         StructField('second', IntegerType(), False),
         StructField('second', DoubleType(), False),
         StructField('speed', DoubleType(), False)])
-
-# df = spark.read.csv("./features/part-00000-e6120af0-10c2-4248-97c4-81baf4304e5c-c000.csv", schema=struct, header=True)
 sdf_raw = spark.read.csv("./features/part-*.csv", schema=struct, header=True)
 sdf_raw.registerTempTable('sdf_raw')
 
 
-# In[4]:
-
-
+## Define feature engineering processes
 # Filter out records whose speed value is negative
 # Average records in each second
 sdf_aggsec = spark.sql(
@@ -52,9 +46,6 @@ sdf_aggsec = spark.sql(
 sdf_aggsec.registerTempTable('sdf_aggsec')
 
 
-# In[6]:
-
-
 # Identify 3 percentile value of speed
 sdf_aggsec_speed3perc = spark.sql(
     "SELECT bookingID,\
@@ -63,8 +54,6 @@ sdf_aggsec_speed3perc = spark.sql(
     GROUP BY bookingID")
 sdf_aggsec_speed3perc.registerTempTable('sdf_aggsec_speed3perc')
 
-
-# In[7]:
 
 
 # Extract records whose speed is within 3% percentile, and calculate avarage of acc in these records
@@ -79,9 +68,6 @@ sdf_aggsec_speed3perc_lt = spark.sql(
 sdf_aggsec_speed3perc_lt.registerTempTable('sdf_aggsec_speed3perc_lt')
 
 
-# In[8]:
-
-
 # Caribrate acc
 sdf_aggsec_carib = spark.sql(
     "SELECT aa.bookingID, aa.second, aa.bearing,\
@@ -94,18 +80,8 @@ sdf_aggsec_carib = spark.sql(
 sdf_aggsec_carib.registerTempTable('sdf_aggsec_carib')
 
 
-# In[9]:
 
-
-# df=sdf_aggsec_carib.toPandas()
-# df.to_csv('./data/eda_carib_10_190608.csv', index=False)
-
-
-# # Feature Engineering
-
-# In[10]:
-
-
+## Feature Engineering
 # 1st phase pre-processing
 # Calculate norm(strength) of acc3d and gyro3d
 sdf_1 = spark.sql(
@@ -115,9 +91,6 @@ sdf_1 = spark.sql(
         SQRT(accx*accx + accy*accy + accz*accz)*SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz)  AS acc3dgyro3d\
     FROM sdf_aggsec_carib")
 sdf_1.registerTempTable('sdf_1')
-
-
-# In[11]:
 
 
 # 2nd phase pre-processing
@@ -150,9 +123,6 @@ sdf_2 = spark.sql(
         LAG(acc3dgyro3d, 10) OVER(PARTITION BY bookingID ORDER BY second) AS acc3dgyro3d_t10\
     FROM sdf_1")
 sdf_2.registerTempTable('sdf_2')
-
-
-# In[12]:
 
 
 # 3rd phase
@@ -211,9 +181,6 @@ sdf_3 = spark.sql(
 sdf_3.registerTempTable('sdf_3')
 
 
-# In[13]:
-
-
 # 4th phase
 # Compute threshold
 sdf_4 = spark.sql(
@@ -265,9 +232,6 @@ sdf_4 = spark.sql(
     FROM sdf_3\
     GROUP BY bookingID")
 sdf_4.registerTempTable('sdf_4')
-
-
-# In[ ]:
 
 
 # https://people.apache.org/~pwendell/spark-nightly/spark-master-docs/spark-2.3.0-SNAPSHOT-2017_12_08_04_01-26e6645-docs/api/sql/#percentile
@@ -412,8 +376,6 @@ sdf_5 = spark.sql(
     GROUP BY 1")
 sdf_5.registerTempTable('sdf_5')
 
-
-# In[ ]:
 
 
 start = time.time()
