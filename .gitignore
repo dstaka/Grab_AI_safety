@@ -1,0 +1,11 @@
+# Ignore files under following files and directories (except .gitkeep files)
+data/*.csv
+log/*.log
+output/*.csv
+output/*.tsv
+*.pyc
+!.gitkeep
+.DS_Store
+.log
+feature/*.csv
+label/*.csv
