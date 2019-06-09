@@ -7,5 +7,5 @@ output/*.tsv
 !.gitkeep
 .DS_Store
 .log
-feature/*.csv
-label/*.csv
+features/*.csv
+labels/*.csv
