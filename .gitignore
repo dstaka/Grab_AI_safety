@@ -9,3 +9,5 @@ output/*.tsv
 .log
 features/*.csv
 labels/*.csv
+_SUCCESS
+dataset/agg_features/*.csv
