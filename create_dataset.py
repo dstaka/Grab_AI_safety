@@ -1,5 +1,6 @@
-# Usage: spark-submit --master local[*] --deploy-mode client create_dataset.py
-# export PYSPARK_DRIVER_PYTHON=python
+# Usage: spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_dataset.py 
+from pyspark import SparkConf, SparkContext
+from pyspark.sql import SQLContext, SparkSession
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
 import pandas as pd
@@ -8,6 +9,17 @@ import logging
 import logging.config
 import sys
 args = sys.argv
+
+# Set up Spark
+# conf = SparkConf().setAppName("Create_features")
+# sc = SparkContext(conf=conf)
+# sqlContext = SQLContext(sc)
+# spark = SparkSession.builder.config(conf=conf)
+# spark = SparkSession.appName("Create_features").config("spark.driver.host", "localhost").getOrCreate()
+spark = SparkSession\
+    .builder\
+    .appName("Create_features")\
+    .getOrCreate()
 
 # print(args)
 # args[1]=input file
@@ -408,5 +420,5 @@ if __name__ == '__main__':
     logger.info('Create features')
     create_features(_dirpath=_feature_data_dir)
     process_time = round(time.time() - start, 2)
-    logger.info('Elapsed time: ' + process_time + 'sec')
+    logger.info('Elapsed time: ' + str(process_time) + 'sec')
     logger.info('create_dataset() completed!')
