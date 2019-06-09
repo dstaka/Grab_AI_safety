@@ -1,3 +1,5 @@
+# Usage: spark-submit --master local[*] --deploy-mode client create_dataset.py
+# export PYSPARK_DRIVER_PYTHON=python
 from pyspark.sql.types import *
 from pyspark.sql import functions as func
 import pandas as pd
@@ -406,5 +408,5 @@ if __name__ == '__main__':
     logger.info('Create features')
     create_features(_dirpath=_feature_data_dir)
     process_time = round(time.time() - start, 2)
-    logger.info('Elapsed time: ' + str(process_time))
+    logger.info('Elapsed time: ' + process_time + 'sec')
     logger.info('create_dataset() completed!')
