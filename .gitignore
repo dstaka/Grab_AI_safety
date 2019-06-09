@@ -11,3 +11,5 @@ features/*.csv
 labels/*.csv
 _SUCCESS
 dataset/agg_features/*.csv
+dataset/agg_features/*.crc
+
