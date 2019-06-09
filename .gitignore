@@ -12,4 +12,6 @@ labels/*.csv
 _SUCCESS
 dataset/agg_features/*.csv
 dataset/agg_features/*.crc
-
+.ipynb_checkpoints/*
+derby.log
+metastore_db/
