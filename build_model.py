@@ -10,122 +10,34 @@ logging.config.fileConfig('./config/logging.conf', disable_existing_loggers=Fals
 logger = logging.getLogger('root')
 
 
-df_agg_features=pd.read_csv('./data/agg_features_t5_190608.csv/part-00000-e288dcb3-d734-408a-9aca-1f3ebf01c79a-c000.csv')
-df_agg_features.shape
 
 
-# In[3]:
+def create_dataset(_dirpath):
+    # Load feature file
+    df_agg_features=pd.read_csv(_dirpath + '/part-*.csv')
+    
+    # Load label file
+    file_list = glob.glob('./labels/part-*.csv')
+    agg_label_data = [pd.read_table(file_list[i], parse_dates=[0]) for i in range(len(file_list))]
+    df_label = pd.concat(agg_label_data, ignore_index=True)
+    
+    # Exclude bookingIDs whose label value is not unique
+    df_label = df_label[~(df_label.bookingID.duplicated())]
+    
+    # Join feature data and label
+    df = df_agg_features.merge(df_label, how='inner', on='bookingID')
+    df.to_csv('./modelling_dataset.csv', index=False)    
 
 
-df_agg_features.head()
-
-
-# In[4]:
-
-
-list(df_agg_features)
-
-
-# # Label data
-
-# In[5]:
-
-
-df_label=pd.read_csv('./labels/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv')
-df_label.shape
-
-
-# In[6]:
-
-
-# Check duplicated 
-df_label[df_label.bookingID.isin(df_label[df_label.bookingID.duplicated()].bookingID)].sort_values(by=['bookingID', 'label'])
-
-
-# In[7]:
-
-
-# Exclude bookingIDs whose label is not determined
-# remove_bookingID_list = df_label[df_label.bookingID.isin(df_label[df_label.bookingID.duplicated()].bookingID)].bookingID
-# remove_bookingID_list = list(df_label[df_label.bookingID.duplicated()].bookingID)
-df_label = df_label[~(df_label.bookingID.duplicated())]
-df_label.shape
-
-
-# In[8]:
-
-
-# Check if duplicated bookingIDs are removed
-df_label[df_label.bookingID.isin(df_label[df_label.bookingID.duplicated()].bookingID)].sort_values(by=['bookingID', 'label'])
-
-
-# In[9]:
-
-
-df=df_agg_features.merge(df_label, how='inner', on='bookingID')
-df.shape
-
-
-# In[10]:
-
-
-df.bookingID.nunique()
-
-
-# In[11]:
-
-
-df.to_csv('./df_190603.csv', index=False)
-
-
-# In[15]:
-
-
-import warnings
-warnings.filterwarnings('ignore')
-
-import pandas as pd
-import numpy as np
-import sklearn
-
-import xgboost as xgb
-
-# from sklearn import cross_validation
-# from sklearn.cross_validation import train_test_split
-#from sklearn.grid_search import GridSearchCV #old version which will be removed in future
-# from sklearn.model_selection import cross_validation
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import StratifiedKFold
-
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, precision_recall_curve, auc, roc_curve
-from sklearn.metrics import f1_score, accuracy_score, log_loss, precision_score, recall_score
-from sklearn.metrics import make_scorer
-
-from sklearn.model_selection import StratifiedShuffleSplit
-
-#Random search
-#from sklearn.grid_search import RandomizedSearchCV #old version which will be removed in future
-# from sklearn.model_selection import RandomizedSearchCV
-# from scipy.stats import randint as sp_randint
-# import scipy as sp
-
-#order is matter
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-get_ipython().magic('matplotlib inline')
-# import seaborn as sns; sns.set(style='whitegrid')
-# import plotly.graph_objs as go
-
-import math
-import time
-
-
-from scipy import stats
-import sklearn.preprocessing as sp
-target='label'
+if __name__ == '__main__':
+    start = time.time()
+    logger.info('Create dataset')
+    create_dataset(_dirpath=XXX)
+    logger.info('Create features')
+    create_features(_dirpath=_feature_data_dir)
+    process_time = round(time.time() - start, 2)
+    logger.info('Elapsed time: ' + process_time + 'sec')
+    logger.info('create_dataset() completed!')
 
 
 
@@ -351,3 +263,9 @@ print("#########################################################################
 
 
 # In[29]:
+
+
+if __name__ == '__main__':
+    logger.info('')
+    run_model_building()
+    logger.info('')
