@@ -1,17 +1,20 @@
 # Ignore files under following files and directories (except .gitkeep files)
-data/*.csv
+raw_data/train/*.csv
+raw_data/train/*.crc
+raw_data/test/*.csv
+raw_data/test/*.crc
 log/*.log
-output/*.csv
-output/*.tsv
 *.pyc
 !.gitkeep
 .DS_Store
 .log
-features/*.csv
-labels/*.csv
+labels/train/*.csv
+labels/test/*.csv
 _SUCCESS
-dataset/agg_features/*.csv
-dataset/agg_features/*.crc
+dataset/train/*.csv
+dataset/train/*.crc
+dataset/test/*.csv
+dataset/test/*.crc
 .ipynb_checkpoints/*
 derby.log
 metastore_db/
