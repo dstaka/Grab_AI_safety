@@ -13,10 +13,6 @@ from sklearn.metrics import confusion_matrix, classification_report, roc_auc_sco
 from sklearn.metrics import f1_score, accuracy_score, log_loss, precision_score, recall_score
 from sklearn.metrics import make_scorer
 from sklearn.model_selection import StratifiedShuffleSplit
-# import matplotlib as mpl
-# mpl.use('Agg')
-# import matplotlib.pyplot as plt
-# %matplotlib inline
 import math
 import time
 from scipy import stats
@@ -37,13 +33,13 @@ def create_dataset():
     # feature_filelist = glob.glob('./dataset/agg_features/part-*.csv')#modify!!!
     # agg_feature_data = [pd.read_table(feature_filelist[i], parse_dates=[0]) for i in range(len(feature_filelist))]
     # df_agg_features = pd.concat(agg_feature_data, ignore_index=True)
-    df_agg_features = pd.read_csv('./dataset/agg_features/part-00000-bfdd70d2-ea5c-4c55-9f92-e7b21de30624-c000.csv')
+    df_agg_features = pd.read_csv('./dataset/train/part-00000-bfdd70d2-ea5c-4c55-9f92-e7b21de30624-c000.csv')
 
     # Load label file
     # label_filelist = glob.glob('./labels/part-*.csv')
     # agg_label_data = [pd.read_table(label_filelist[i], parse_dates=[0]) for i in range(len(label_filelist))]
     # df_label = pd.concat(agg_label_data, ignore_index=True)
-    df_label = pd.read_csv('./labels/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv')
+    df_label = pd.read_csv('./labels/train/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv')
 
 
     # Exclude bookingIDs whose label value is not unique
@@ -51,7 +47,7 @@ def create_dataset():
 
     # Join feature data and label
     df = df_agg_features.merge(df_label, how='inner', on='bookingID')
-    df.to_csv('./modelling_dataset.csv', index=False)
+    df.to_csv('./dataset/train/modelling_dataset.csv', index=False)
     return df
 
 
