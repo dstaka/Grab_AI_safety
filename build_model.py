@@ -63,7 +63,7 @@ def preprocess_dataset(_df):
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train, y_test = y[train_index], y[test_index]
 
-    # transform DMatrix type
+    # Transform DMatrix type
     dtrain = xgb.DMatrix(X_train,label=y_train, feature_names=X_train.columns)
 #     dtest = xgb.DMatrix(X_test.as_matrix(),label=y_test.tolist(), feature_names=X_train.columns)
     return dtrain, X_train, X_test, y_train, y_test
@@ -120,4 +120,3 @@ if __name__ == '__main__':
     logger.info('build_model() start')
     build_model(_selected_model=selected_model, _dtrain=dtrain)
     logger.info('build_model.py completed!')
-    logger.info('')
