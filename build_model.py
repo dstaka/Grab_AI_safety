@@ -144,7 +144,7 @@ def build_fulldata_model(_selected_model, _dtrain):
 
 if __name__ == '__main__':
     logger.info('build_model.py start!')
-    logger.info('create_dataset() start')
+    logger.info('create_dataset.merge_feature_and_label() start')
     df = create_dataset.merge_feature_and_label(_feature_file_path=feature_file_path, _label_file_path=label_file_path, _output_file_path=output_file_path)
     logger.info('preprocess_dataset() start')
     dmatrix_fulldata, X_train, X_test, y_train, y_test = preprocess_dataset(_df=df)
