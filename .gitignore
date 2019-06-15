@@ -5,6 +5,7 @@ raw_data/test/*.csv
 raw_data/test/*.crc
 log/*.log
 *.pyc
+__pycache__
 !.gitkeep
 .DS_Store
 .log

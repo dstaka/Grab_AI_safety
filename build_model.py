@@ -1,3 +1,4 @@
+from python_module import create_dataset
 import pandas as pd
 import glob
 import warnings
@@ -24,6 +25,7 @@ import logging.config
 target='label'
 feature_file_path = './dataset/train/part-*.csv'
 label_file_path = './labels/train/part-*.csv'
+output_file_path = './dataset/train/modelling_dataset.csv'
 scoring_metric = 'roc_auc'
 num_fold = 5 # 5-fold cross-validation
 
@@ -32,51 +34,50 @@ logging.config.fileConfig('./config/logging.conf', disable_existing_loggers=Fals
 logger = logging.getLogger('root')
 
 
+# def create_dataset(_feature_file_path, _label_file_path):
+#     # Load feature file
+#     try:
+#         feature_filelist = glob.glob(_feature_file_path)
+#         tmp_list = []
+#         for _filename in feature_filelist:
+#             tmp_df = pd.read_csv(_filename, index_col=None, header=0)
+#             tmp_list.append(tmp_df)
+#         df_agg_features = pd.concat(tmp_list)
+#         length_df_agg_features = len(df_agg_features)
+#         logger.info('Total No. of bookingIDs in feature files: ' + str(length_df_agg_features))
+#     except Exception as e:
+#         logger.error(
+#             'build_model.py: Failed to read aggregated feature files!')
+#         logger.error('Exception on create_dataset(): '+str(e))
+#         raise
 
-def create_dataset(_feature_file_path, _label_file_path):
-    # Load feature file
-    try:
-        feature_filelist = glob.glob(_feature_file_path)
-        tmp_list = []
-        for _filename in feature_filelist:
-            tmp_df = pd.read_csv(_filename, index_col=None, header=0)
-            tmp_list.append(tmp_df)
-        df_agg_features = pd.concat(tmp_list)
-        length_df_agg_features = len(df_agg_features)
-        logger.info('Total No. of bookingIDs in feature files: ' + str(length_df_agg_features))
-    except Exception as e:
-        logger.error(
-            'build_model.py: Failed to read aggregated feature files!')
-        logger.error('Exception on create_dataset(): '+str(e))
-        raise
+#     # Load label file
+#     try:
+#         label_filelist = glob.glob(_label_file_path)
+#         tmp_list = []
+#         for _filename in label_filelist:
+#             tmp_df = pd.read_csv(_filename, index_col=None, header=0)
+#             tmp_list.append(tmp_df)
+#         df_label = pd.concat(tmp_list)
+#         # Exclude bookingIDs whose label value is not unique
+#         df_label = df_label[~(df_label.bookingID.duplicated())]
+#         length_df_label = len(df_label)
+#         logger.info('Total No. of bookingIDs in label files: ' + str(length_df_label))
+#     except Exception as e:
+#         logger.error(
+#             'build_model.py: Failed to read label files!')
+#         logger.error('Exception on create_dataset(): '+str(e))
+#         raise
 
-    # Load label file
-    try:
-        label_filelist = glob.glob(_label_file_path)
-        tmp_list = []
-        for _filename in label_filelist:
-            tmp_df = pd.read_csv(_filename, index_col=None, header=0)
-            tmp_list.append(tmp_df)
-        df_label = pd.concat(tmp_list)
-        # Exclude bookingIDs whose label value is not unique
-        df_label = df_label[~(df_label.bookingID.duplicated())]
-        length_df_label = len(df_label)
-        logger.info('Total No. of bookingIDs in label files: ' + str(length_df_label))
-    except Exception as e:
-        logger.error(
-            'build_model.py: Failed to read label files!')
-        logger.error('Exception on create_dataset(): '+str(e))
-        raise
-
-    if(length_df_agg_features != length_df_label):
-        logger.warn('No. of bookingIDs is not matched between feature files and label files!')
+#     if(length_df_agg_features != length_df_label):
+#         logger.warn('No. of bookingIDs is not matched between feature files and label files!')
     
-    # Merge feature data and label
-    df = df_agg_features.merge(df_label, how='inner', on='bookingID')
-    length_df = len(df)
-    logger.info('Total No. of bookingIDs in modelling dataset: ' + str(length_df))
-    df.to_csv('./dataset/train/modelling_dataset.csv', index=False)
-    return df
+#     # Merge feature data and label
+#     df = df_agg_features.merge(df_label, how='inner', on='bookingID')
+#     length_df = len(df)
+#     logger.info('Total No. of bookingIDs in modelling dataset: ' + str(length_df))
+#     df.to_csv('./dataset/train/modelling_dataset.csv', index=False)
+#     return df
 
 
 def preprocess_dataset(_df):
@@ -144,7 +145,7 @@ def build_fulldata_model(_selected_model, _dtrain):
 if __name__ == '__main__':
     logger.info('build_model.py start!')
     logger.info('create_dataset() start')
-    df = create_dataset(_feature_file_path=feature_file_path, _label_file_path=label_file_path)
+    df = create_dataset.merge_feature_and_label(_feature_file_path=feature_file_path, _label_file_path=label_file_path, _output_file_path=output_file_path)
     logger.info('preprocess_dataset() start')
     dmatrix_fulldata, X_train, X_test, y_train, y_test = preprocess_dataset(_df=df)
     logger.info('select_model() start')
