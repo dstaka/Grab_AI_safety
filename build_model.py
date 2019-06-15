@@ -22,7 +22,7 @@ import pickle
 import logging
 import logging.config
 
-target='label'
+target = 'label'
 feature_file_path = './dataset/train/part-*.csv'
 label_file_path = './labels/train/part-*.csv'
 output_file_path = './dataset/train/modelling_dataset.csv'
