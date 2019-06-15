@@ -1,5 +1,5 @@
 import pandas as pd
-# import glob
+import glob
 import warnings
 warnings.filterwarnings('ignore')
 import numpy as np
@@ -22,31 +22,59 @@ import logging
 import logging.config
 
 target='label'
+feature_file_path = './dataset/train/part-*.csv'
+label_file_path = './labels/train/part-*.csv'
+scoring_metric = 'roc_auc'
+num_fold = 5 # 5-fold cross-validation
 
 # Set logger
 logging.config.fileConfig('./config/logging.conf', disable_existing_loggers=False)
 logger = logging.getLogger('root')
 
 
-def create_dataset():
+
+def create_dataset(_feature_file_path, _label_file_path):
     # Load feature file
-    # feature_filelist = glob.glob('./dataset/agg_features/part-*.csv')#modify!!!
-    # agg_feature_data = [pd.read_table(feature_filelist[i], parse_dates=[0]) for i in range(len(feature_filelist))]
-    # df_agg_features = pd.concat(agg_feature_data, ignore_index=True)
-    df_agg_features = pd.read_csv('./dataset/train/part-00000-bfdd70d2-ea5c-4c55-9f92-e7b21de30624-c000.csv')
+    try:
+        feature_filelist = glob.glob(_feature_file_path)
+        tmp_list = []
+        for _filename in feature_filelist:
+            tmp_df = pd.read_csv(_filename, index_col=None, header=0)
+            tmp_list.append(tmp_df)
+        df_agg_features = pd.concat(tmp_list)
+        length_df_agg_features = len(df_agg_features)
+        logger.info('Total No. of bookingIDs in feature files: ' + str(length_df_agg_features))
+    except Exception as e:
+        logger.error(
+            'build_model.py: Failed to read aggregated feature files!')
+        logger.error('Exception on create_dataset(): '+str(e))
+        raise
 
     # Load label file
-    # label_filelist = glob.glob('./labels/part-*.csv')
-    # agg_label_data = [pd.read_table(label_filelist[i], parse_dates=[0]) for i in range(len(label_filelist))]
-    # df_label = pd.concat(agg_label_data, ignore_index=True)
-    df_label = pd.read_csv('./labels/train/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv')
+    try:
+        label_filelist = glob.glob(_label_file_path)
+        tmp_list = []
+        for _filename in label_filelist:
+            tmp_df = pd.read_csv(_filename, index_col=None, header=0)
+            tmp_list.append(tmp_df)
+        df_label = pd.concat(tmp_list)
+        # Exclude bookingIDs whose label value is not unique
+        df_label = df_label[~(df_label.bookingID.duplicated())]
+        length_df_label = len(df_label)
+        logger.info('Total No. of bookingIDs in label files: ' + str(length_df_label))
+    except Exception as e:
+        logger.error(
+            'build_model.py: Failed to read label files!')
+        logger.error('Exception on create_dataset(): '+str(e))
+        raise
 
-
-    # Exclude bookingIDs whose label value is not unique
-    df_label = df_label[~(df_label.bookingID.duplicated())]
-
-    # Join feature data and label
+    if(length_df_agg_features != length_df_label):
+        logger.warn('No. of bookingIDs is not matched between feature files and label files!')
+    
+    # Merge feature data and label
     df = df_agg_features.merge(df_label, how='inner', on='bookingID')
+    length_df = len(df)
+    logger.info('Total No. of bookingIDs in modelling dataset: ' + str(length_df))
     df.to_csv('./dataset/train/modelling_dataset.csv', index=False)
     return df
 
@@ -62,15 +90,18 @@ def preprocess_dataset(_df):
     for train_index, test_index in sss.split(X, y):
         X_train, X_test = X.iloc[train_index], X.iloc[test_index]
         y_train, y_test = y[train_index], y[test_index]
-
+        
+    logger.info('No. of bookingIDs in training dataset: ' + str(len(X_train)))
+    logger.info('No. of bookingIDs in testing dataset: ' + str(len(y_train)))
+    
     # Transform DMatrix type
-    dtrain = xgb.DMatrix(X_train,label=y_train, feature_names=X_train.columns)
-#     dtest = xgb.DMatrix(X_test.as_matrix(),label=y_test.tolist(), feature_names=X_train.columns)
-    return dtrain, X_train, X_test, y_train, y_test
+    dmatrix_fulldata = xgb.DMatrix(X, label=y, feature_names=X_train.columns)
+    return dmatrix_fulldata, X_train, X_test, y_train, y_test
 
 
-def select_model(_X_train, _y_train, _scoring_metric='roc_auc', _num_fold=5, ):
-    print('Metric: ', _scoring_metric)
+def select_model(_X_train, _y_train, _scoring_metric, _num_fold):
+    logger.info('Run ' + str(_num_fold) + '-fold cross-validation')
+    logger.info('Metric is ' + _scoring_metric)
     xgb_model = xgb.XGBClassifier()
     xgb_model.get_params().keys()
     params_cv={'objective': ['binary:logistic'],
@@ -97,13 +128,14 @@ def select_model(_X_train, _y_train, _scoring_metric='roc_auc', _num_fold=5, ):
     gscv = GridSearchCV(xgb_model, params_cv, scoring=_scoring_metric, cv=stratified_gscv.split(_X_train, _y_train))
     gscv.fit(_X_train, _y_train)
 
-    print('CV', _scoring_metric,':', gscv.best_score_)
-    print(gscv.best_estimator_.get_params())
+    logger.info('CV score: ' + _scoring_metric + ' = ' + str(gscv.best_score_))
+    logger.info('Hyperparameters of selected model:')
+    logger.info(gscv.best_estimator_.get_params())
     return gscv.best_estimator_.get_params()
 
 
-def build_model(_selected_model, _dtrain):
-    # train model by using tuned hyper-parameter
+def build_fulldata_model(_selected_model, _dtrain):
+    # Train model by using tuned hyper-parameter
     model_fulldata=xgb.train(_selected_model, _dtrain, num_boost_round=500) # n_estimators = num_boost_round
     # Save XGBoost model as a pickle file
     pickle.dump(model_fulldata, open('./model/xgb_model_fulldata.pkl', 'wb'))
@@ -112,11 +144,11 @@ def build_model(_selected_model, _dtrain):
 if __name__ == '__main__':
     logger.info('build_model.py start!')
     logger.info('create_dataset() start')
-    df = create_dataset()
+    df = create_dataset(_feature_file_path=feature_file_path, _label_file_path=label_file_path)
     logger.info('preprocess_dataset() start')
-    dtrain, X_train, X_test, y_train, y_test = preprocess_dataset(_df=df)
+    dmatrix_fulldata, X_train, X_test, y_train, y_test = preprocess_dataset(_df=df)
     logger.info('select_model() start')
-    selected_model = select_model(_X_train=X_train, _y_train=y_train)
-    logger.info('build_model() start')
-    build_model(_selected_model=selected_model, _dtrain=dtrain)
+    selected_model = select_model(_X_train=X_train, _y_train=y_train, _scoring_metric=scoring_metric, _num_fold=num_fold)
+    logger.info('build_fulldata_model() start')
+    build_fulldata_model(_selected_model=selected_model, _dtrain=dmatrix_fulldata)
     logger.info('build_model.py completed!')
