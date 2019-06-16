@@ -57,12 +57,7 @@ def score_dangerdrive(_df):
     # Calculate AUC
     roc_auc_score_tmp = roc_auc_score(y_test, predicted_prob)
     logger.info('Test AUC: ' + str(roc_auc_score_tmp))
-    # Calculate accuracy
-    y_test_val = y_test.get_values()
-    y_bin = [1. if y_test > 0.5 else 0. for y_cont in predicted_prob] # binaryzing output
-    accuracy_score_tmp = accuracy_score(y_test_val, y_bin)
-    logger.info('Test accuracy: ' + accuracy_score_tmp)
-
+    
 
 if __name__ == '__main__':
     logger.info('detect_dangerdrive.py start!')
