@@ -6,8 +6,7 @@ Given the telematics data for each trip and the label if the trip is tagged as d
 ## Data
 Data is available from this URL.  
 https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
-## Prerequisite:
-Environment:
+## Environment:
  - OS: Ubuntu 18.04.2 LTS (Bionic Beaver)  
  - Python: Python 3.6.8  
   - As for Python packagesm, refer requirement.txt  
@@ -27,11 +26,10 @@ $ cd ./Grab_AI_safety
  (e.g.) ./labels/test/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv  
 7. Create features for testing dataset by running Spark job  
 $ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_features.py test &  
-Note: 
- - executor-cores, executor-memory, and driver-memory options need to be set according to your environment  
+* executor-cores, executor-memory, and driver-memory options need to be set according to your environment  
 8. Run pre-built model by running Python program  
 $ python detect_dangerdrive.py test  
-## Note:  
+## Note:
  - XGBoost model file is uploaded on this repository (./model/xgb_model_fulldata.pkl)  
  - detect_dangerdrive.py loads the model and make prediction  
  - If you would like to build model by yourself, you need to follow these steps  
