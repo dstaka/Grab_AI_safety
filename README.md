@@ -64,6 +64,7 @@ $ python detect_dangerdrive.py train
   - SQRT(accx*accx + accy*accy + accz*accz)  
   - SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz)  
   - SQRT(accx*accx + accy*accy + accz*accz)*SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz)  
+ - Difference of readings between t and t-5 are calculated in order to represent how much speed and direction differs within a certain period.  
 ## Technologies employed
  - Spark is used for creating features by bookingID level given telematics data. Although Pandas could be enough to handle data provided for this challenge, I exploited Spark for the purpose of scalability because Grab has vast amounts of telematics data with millions of user base. By using Spark, the solution can be scaled easily.  
  - As for modelling framework, XGBoost with Scikit-learn is used for the challenge because aggregated data can be not so huge compared to raw telematics data. If Grab integrates the solution into Spark from end-to-end, Spark ML would be used for building model.  
