@@ -42,7 +42,7 @@ $ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --exec
 * executor-cores, executor-memory, and driver-memory options need to be set according to your environment  
 8. Run pre-built model by running Python program  
 $ python detect_dangerdrive.py test  
-## Note:
+### Note:
  - XGBoost model file is uploaded on this repository (./model/xgb_model_fulldata.pkl)  
  - detect_dangerdrive.py loads the model and make prediction  
  - If you would like to build model by yourself, you need to follow these steps  
