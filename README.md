@@ -54,11 +54,12 @@ $ python build_model.py
 $ python detect_dangerdrive.py train  
 
 
-## Usecases of the model built in the project
- - Label is given by customers, but some users may be more likely to label as "dangerous", vice versa.
+## Use cases of the model built in the project
+ - Grab provides function that enables a user to report in case that a drive was dangerous. However, there would be difference among each user whether a user 
 
 
 ## Future works
- - Realize real-time dangerous drive detection by building a model which utilizes telematics data generated on partway drive. Streaming data processing technologies such as Spark Streaming and Kafka could be helpful to ingest real-time data and make a prediction. By implementing such a real-time detection system, Grab can send push notification so that a driver is warned.
+ - Realize real-time dangerous drive detection by building a model which utilizes telematics data generated on halfway drive. Streaming data processing technologies such as Spark Streaming and Kafka could be helpful to ingest real-time data and make a prediction on the fly. By implementing such a real-time detection system, Grab can send push notification so that a driver is warned.
+ - Collect image data during travel to build image recognition model to detect drowsy driving. The model will contribute to identify dangerous drive from another point of view. To collect such data, Grab may provide incentive to a driver who allows Grab to collect real-time image data via smartphone camera.  
  - Dockerize an application for productionalization
 
