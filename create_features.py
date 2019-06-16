@@ -53,7 +53,7 @@ def load_data_into_spark(_filepath):
     return sdf_raw
     
 
-def create_dataset(_dirpath, _sdf_raw):
+def create_agg_features(_dirpath, _sdf_raw):
     # Register table
     _sdf_raw.registerTempTable('sdf_raw')
 
@@ -174,7 +174,6 @@ def create_dataset(_dirpath, _sdf_raw):
     # Aggregate features into bookingID level
     sdf_1_5 = spark.sql(
         "SELECT aa.bookingID,\
-            COUNT(second) AS datapoint_num,\
             MAX(aa.second) AS travel_sec,\
             PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.99)  AS speed_sub_t5_max,\
             STDDEV(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0)) AS speed_sub_t5_std,\
@@ -422,8 +421,8 @@ if __name__ == '__main__':
     start = time.time()
     logger.info('Load data files from ' + _telematics_data_dir + _csv_filenames)
     sdf_raw = load_data_into_spark(_filepath=_telematics_data_dir+_csv_filenames)
-    logger.info('create_dataset() start')
-    create_dataset(_dirpath=_feature_data_dir, _sdf_raw=sdf_raw)
+    logger.info('create_agg_features() start')
+    create_agg_features(_dirpath=_feature_data_dir, _sdf_raw=sdf_raw)
     process_time = round(time.time() - start, 2)
     logger.info('Elapsed time: ' + str(process_time) + 'sec')
     logger.info('create_features.py completed!')
