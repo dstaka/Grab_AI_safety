@@ -106,25 +106,21 @@ def select_model(_X_train, _y_train, _scoring_metric, _num_fold):
     xgb_model = xgb.XGBClassifier()
     xgb_model.get_params().keys()
     params_cv={'objective': ['binary:logistic'],
-            'learning_rate': [0.001], #eta
-    #                'reg_alpha': [0.1], # alpha(L1)
-    #                'reg_lambda': [0.1], #lambda(L2)
-                'gamma': [0], # min_split_loss
-                'max_depth': [3], # max depth of a tree [default=6]
-#                 'max_depth': [3, 7], # max depth of a tree [default=6]
-                'min_child_weight': [1], # [default=1]
+               'learning_rate': [0.001],
+                'gamma': [0],
+                'max_depth': [5, 7],
+                'min_child_weight': [1],
                 'max_delta_step' : [1],
-                'subsample': [0.3], # [default=1]
-#                 'subsample': [0.3, 0.5], # [default=1]
-                'colsample_bytree': [0.3], # [default=1]
-#                 'colsample_bytree': [0.3, 0.5], # [default=1]
-                'colsample_bylevel': [0.3], # [default=1]
-#                 'colsample_bylevel': [0.3, 0.5], # [default=1]
-                'nthread': [8],
+                'subsample': [0.5, 1],
+                'silent': 1, 
+                'colsample_bytree': [0.5, 0.7],
+                'colsample_bylevel': [0.5, 0.7],
+                'nthread': [16],
                 'scale_pos_weight': [1],
-                'n_estimators': [500], # n_estimators = num_boost_round
+                'n_estimators': [500],
                 'seed': [1021]
         }
+
     stratified_gscv = StratifiedKFold(n_splits=_num_fold, random_state=1021, shuffle=False)
     gscv = GridSearchCV(xgb_model, params_cv, scoring=_scoring_metric, cv=stratified_gscv.split(_X_train, _y_train))
     gscv.fit(_X_train, _y_train)
@@ -137,7 +133,7 @@ def select_model(_X_train, _y_train, _scoring_metric, _num_fold):
 
 def build_fulldata_model(_selected_model, _dtrain):
     # Train model by using tuned hyper-parameter
-    model_fulldata=xgb.train(_selected_model, _dtrain, num_boost_round=500) # n_estimators = num_boost_round
+    model_fulldata=xgb.train(_selected_model, _dtrain, num_boost_round=500)
     # Save XGBoost model as a pickle file
     pickle.dump(model_fulldata, open('./model/xgb_model_fulldata.pkl', 'wb'))
 
