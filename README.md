@@ -59,10 +59,10 @@ $ python detect_dangerdrive.py train
 ### Accelerometer readings calibration
  - Accelerometer readings are affected by gravity. Effect of gravity in each axis depends on how a mobile device is inclined in a car. Hence, .
 ## Technologies employed
- - Spark is used for creating features by bookingID level given telematics data. Although Pandas could be enough to handle data provided for this challenge, I exploited Spark for the purpose of scalability because Grab has vast amounts of telematics data with millions of user base. By using Spark, the solution can be scaled easily.
- - As for modelling framework, XGBoost with Scikit-learn is used for the challenge because aggregated data can be not so huge compared to raw telematics data. If Grab integrates the solution into Spark from end-to-end, Spark ML would be used for building model.
+ - Spark is used for creating features by bookingID level given telematics data. Although Pandas could be enough to handle data provided for this challenge, I exploited Spark for the purpose of scalability because Grab has vast amounts of telematics data with millions of user base. By using Spark, the solution can be scaled easily.  
+ - As for modelling framework, XGBoost with Scikit-learn is used for the challenge because aggregated data can be not so huge compared to raw telematics data. If Grab integrates the solution into Spark from end-to-end, Spark ML would be used for building model.  
  - Regarding modelling algorithm, XGBoost is employed because GBDT based model is strong in cross tabular data.  
-## Findings & insight
+## Findings & insights
  - A travel time is the most important feature according to XGBoost feature importance. It suggests that longer a drive, more a user may have more chance to feel danger. It makes sense but longer drive isn't necessary dangerous one.
  - In addition, there would be individual variation whether a user feels drive is dangerous or not. Also, a user might not report to Grab even if he had dangerous travel. Thus, I'm afraid that labelling could be biased.
  - Therefore, we may need to think of another way in order to annotate data for supervised learning, or to detect dangerous driver by using unsupervised learning. 
