@@ -1,4 +1,5 @@
 # Grab_AI_safety
+<<<<<<< HEAD
 This repository is deliverables of Safety challenge in Grab AI for SEA.  
 https://www.aiforsea.com/safety
 ## Problem statement
@@ -97,3 +98,5 @@ $ python detect_dangerdrive.py train
  - Experiment on other modelling algorithms such as Deep Neural Network, unsupervised abnormal detection approach, etc  
  - Dockerize an application for productionalization
 
+=======
+>>>>>>> 5af53fdb8c649344ac764da319aad9dba80d28f3
