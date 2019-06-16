@@ -6,6 +6,18 @@ Given the telematics data for each trip and the label if the trip is tagged as d
 ## Data
 Data is available from this URL.  
 https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
+## Data dictionary
+ - bookingID: trip id  
+ - Accuracy: accuracy inferred by GPS in meters  
+ - Bearing: GPS bearing in degree  
+ - accx: accelerometer reading at x axis (m/s2)  
+ - accy: accelerometer reading at y axis (m/s2)  
+ - accz: accelerometer reading at z axis (m/s2)  
+ - gyrox: gyroscope reading in x axis (rad/s)  
+ - gyroy: gyroscope reading in y axis (rad/s)  
+ - gyroz: gyroscope reading in z axis (rad/s)  
+ - second: time of the record by number of seconds  
+ - Speed: speed measured by GPS in m/s  
 ## Environment:
  - OS: Ubuntu 18.04.2 LTS (Bionic Beaver)  
  - Python: Python 3.6.8  
