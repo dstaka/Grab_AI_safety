@@ -40,6 +40,9 @@ logging.config.fileConfig('./config/logging.conf', disable_existing_loggers=Fals
 logger = logging.getLogger('root')
 
 def score_dangerdrive(_df):
+    # Remove ID information
+    _df = _df.drop('bookingID', axis=1)
+
     # Transform DMatrix type
     X_test = _df.iloc[:,0:len(_df.columns)-1]
     y_test = _df[target]
