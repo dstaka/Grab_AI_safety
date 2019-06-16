@@ -1,4 +1,7 @@
-# Usage: spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_dataset.py 
+# Usage for creating training feature file
+# spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_dataset.py train
+# Usage for creating testing feature file
+# spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_dataset.py test
 from pyspark import SparkConf, SparkContext
 from pyspark.sql import SQLContext, SparkSession
 from pyspark.sql.types import *
@@ -9,34 +12,26 @@ import logging
 import logging.config
 import sys
 args = sys.argv
-
-# Set up Spark
-# conf = SparkConf().setAppName("Create_features")
-# sc = SparkContext(conf=conf)
-# sqlContext = SQLContext(sc)
-# spark = SparkSession.builder.config(conf=conf)
-# spark = SparkSession.appName("Create_features").config("spark.driver.host", "localhost").getOrCreate()
-spark = SparkSession\
-    .builder\
-    .appName("Create_features")\
-    .getOrCreate()
-
-# print(args)
-# args[1]=input file
-_telematics_data_dir='./features'
+data_type = args[1] # Either "train" or "test"
+# data_type = 'train'
+_telematics_data_dir='./raw_data/' + data_type
 _csv_filenames='/part-*.csv'
-_feature_data_dir='./dataset/agg_features'
-# print(_telematics_data_dir+_csv_filenames)
-# print(_feature_data_dirs)
-
+_feature_data_dir='./dataset/' + data_type
 
 # Set logger
 logging.config.fileConfig('./config/logging.conf', disable_existing_loggers=True)
 logger = logging.getLogger('root')
 
 
+# Set up Spark
+spark = SparkSession\
+    .builder\
+    .appName("Create_features")\
+    .getOrCreate()
+
+
 def load_data_into_spark(_filepath):
-    ## Load data files
+    # Load data files
     struct = StructType([
             StructField('bookingID', StringType(), False),
             StructField('accuracy', DoubleType(), False),
@@ -55,25 +50,27 @@ def load_data_into_spark(_filepath):
         logger.error('Failed to load data from ' + str(_filepath))
         logger.error('Exception on load_data_into_spark(): '+str(e))
         raise
-    sdf_raw.registerTempTable('sdf_raw')
+    return sdf_raw
     
 
-def create_features(_dirpath):
-    ## Define feature engineering processes
-    # Filter out records whose speed value is negative
-    # Average records in each second
+def create_features(_dirpath, _sdf_raw):
+    # Register table
+    _sdf_raw.registerTempTable('sdf_raw')
+
+    ## Calibrate acc values ##
+    # If speed is negative value, replace with 0
+    # If speed exceeds 300km (i.e. 83.34 m/s), replace with 83.34
+    # Average records by second because there are records whose second values are same
     sdf_aggsec = spark.sql(
         "SELECT bookingID, second,\
+            AVG(accuracy) AS accuracy,\
             AVG(bearing) AS bearing,\
             AVG(accx) AS accx, AVG(accy) AS accy, AVG(accz) AS accz,\
             AVG(gyrox) AS gyrox, AVG(gyroy) AS gyroy, AVG(gyroz) AS gyroz,\
-            AVG(speed) AS speed\
+            AVG(LEAST(GREATEST(speed, 0), 83.34)) AS speed\
         FROM sdf_raw\
-        WHERE speed>=0\
-            AND bookingID=1554778161164\
         GROUP BY bookingID, second")
     sdf_aggsec.registerTempTable('sdf_aggsec')
-
 
     # Identify 3 percentile value of speed
     sdf_aggsec_speed3perc = spark.sql(
@@ -83,9 +80,7 @@ def create_features(_dirpath):
         GROUP BY bookingID")
     sdf_aggsec_speed3perc.registerTempTable('sdf_aggsec_speed3perc')
 
-
-
-    # Extract records whose speed is within 3% percentile, and calculate avarage of acc in these records
+    # Extract records whose speed is within 3% percentile, then calculate avarage of acc in these records
     sdf_aggsec_speed3perc_lt = spark.sql(
         "SELECT aa.bookingID,\
             AVG(aa.accx) AS accx_offset,\
@@ -96,10 +91,9 @@ def create_features(_dirpath):
         GROUP BY aa.bookingID")
     sdf_aggsec_speed3perc_lt.registerTempTable('sdf_aggsec_speed3perc_lt')
 
-
-    # Caribrate acc
+    # Caribrate acc by subtracting offset values
     sdf_aggsec_carib = spark.sql(
-        "SELECT aa.bookingID, aa.second, aa.bearing,\
+        "SELECT aa.bookingID, aa.second, aa.accuracy, aa.bearing,\
             aa.accx - accx_offset AS accx,\
             aa.accy - accy_offset AS accy,\
             aa.accz - accz_offset AS accz,\
@@ -108,23 +102,20 @@ def create_features(_dirpath):
         FROM sdf_aggsec aa LEFT JOIN sdf_aggsec_speed3perc_lt bb ON aa.bookingID=bb.bookingID")
     sdf_aggsec_carib.registerTempTable('sdf_aggsec_carib')
 
-
-
-    ## Feature Engineering
+    ## Feature Engineering 1 ##
     # 1st phase pre-processing
     # Calculate norm(strength) of acc3d and gyro3d
-    sdf_1 = spark.sql(
+    sdf_1_1 = spark.sql(
         "SELECT *,\
             SQRT(accx*accx + accy*accy + accz*accz) AS acc3d,\
             SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz) AS gyro3d,\
             SQRT(accx*accx + accy*accy + accz*accz)*SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz)  AS acc3dgyro3d\
         FROM sdf_aggsec_carib")
-    sdf_1.registerTempTable('sdf_1')
-
+    sdf_1_1.registerTempTable('sdf_1_1')
 
     # 2nd phase pre-processing
-    # Extract records from previous point of time
-    sdf_2 = spark.sql(
+    # Extract records from t-5 point of time
+    sdf_1_2 = spark.sql(
         "SELECT *,\
             LAG(bearing, 5) OVER(PARTITION BY bookingID ORDER BY second) AS bearing_t5,\
             LAG(accx, 5) OVER(PARTITION BY bookingID ORDER BY second) AS accx_t5,\
@@ -137,26 +128,13 @@ def create_features(_dirpath):
             LAG(speed, 5) OVER(PARTITION BY bookingID ORDER BY second) AS speed_t5,\
             LAG(acc3d, 5) OVER(PARTITION BY bookingID ORDER BY second) AS acc3d_t5,\
             LAG(gyro3d, 5) OVER(PARTITION BY bookingID ORDER BY second) AS gyro3d_t5,\
-            LAG(acc3dgyro3d, 5) OVER(PARTITION BY bookingID ORDER BY second) AS acc3dgyro3d_t5,\
-            LAG(bearing, 10) OVER(PARTITION BY bookingID ORDER BY second) AS bearing_t10,\
-            LAG(accx, 10) OVER(PARTITION BY bookingID ORDER BY second) AS accx_t10,\
-            LAG(accy, 10) OVER(PARTITION BY bookingID ORDER BY second) AS accy_t10,\
-            LAG(accy, 10) OVER(PARTITION BY bookingID ORDER BY second) AS accz_t10,\
-            LAG(gyrox, 10) OVER(PARTITION BY bookingID ORDER BY second) AS gyrox_t10,\
-            LAG(gyroy, 10) OVER(PARTITION BY bookingID ORDER BY second) AS gyroy_t10,\
-            LAG(gyroz, 10) OVER(PARTITION BY bookingID ORDER BY second) AS gyroz_t10,\
-            LAG(second, 10) OVER(PARTITION BY bookingID ORDER BY second) AS second_t10,\
-            LAG(speed, 10) OVER(PARTITION BY bookingID ORDER BY second) AS speed_t10,\
-            LAG(acc3d, 10) OVER(PARTITION BY bookingID ORDER BY second) AS acc3d_t10,\
-            LAG(gyro3d, 10) OVER(PARTITION BY bookingID ORDER BY second) AS gyro3d_t10,\
-            LAG(acc3dgyro3d, 10) OVER(PARTITION BY bookingID ORDER BY second) AS acc3dgyro3d_t10\
-        FROM sdf_1")
-    sdf_2.registerTempTable('sdf_2')
-
+            LAG(acc3dgyro3d, 5) OVER(PARTITION BY bookingID ORDER BY second) AS acc3dgyro3d_t5\
+        FROM sdf_1_1")
+    sdf_1_2.registerTempTable('sdf_1_2')
 
     # 3rd phase
-    # Compute record sub and div
-    sdf_3 = spark.sql(
+    # Compute record sub
+    sdf_1_3 = spark.sql(
         "SELECT *,\
             COALESCE(ABS(bearing - bearing_t5), 0) AS bearing_sub_t5,\
             COALESCE(ABS(accx - accx_t5), 0) AS accx_sub_t5,\
@@ -169,50 +147,13 @@ def create_features(_dirpath):
             COALESCE(ABS(speed - speed_t5), 0) AS speed_sub_t5,\
             COALESCE(ABS(acc3d - acc3d_t5), 0) AS acc3d_sub_t5,\
             COALESCE(ABS(gyro3d - gyro3d_t5), 0) AS gyro3d_sub_t5,\
-            COALESCE(ABS(acc3dgyro3d - acc3dgyro3d_t5), 0) AS acc3dgyro3d_sub_t5,\
-            COALESCE(ABS(bearing / bearing_t5), 0) AS bearing_div_t5,\
-            COALESCE(ABS(accx / accx_t5), 0) AS accx_div_t5,\
-            COALESCE(ABS(accy / accy_t5), 0) AS accy_div_t5,\
-            COALESCE(ABS(accz / accz_t5), 0) AS accz_div_t5,\
-            COALESCE(ABS(gyrox / gyrox_t5), 0) AS gyrox_div_t5,\
-            COALESCE(ABS(gyroy / gyroy_t5), 0) AS gyroy_div_t5,\
-            COALESCE(ABS(gyroz / gyroz_t5), 0) AS gyroz_div_t5,\
-            COALESCE(second / second_t5, 0) AS second_div_t5,\
-            COALESCE(ABS(speed / speed_t5), 0) AS speed_div_t5,\
-            COALESCE(ABS(acc3d / acc3d_t5), 0) AS acc3d_div_t5,\
-            COALESCE(ABS(gyro3d / gyro3d_t5), 0) AS gyro3d_div_t5,\
-            COALESCE(ABS(acc3dgyro3d / acc3dgyro3d_t5), 0) AS acc3dgyro3d_div_t5,\
-            COALESCE(ABS(bearing / bearing_t10), 0) AS bearing_div_t10,\
-            COALESCE(ABS(bearing - bearing_t10), 0) AS bearing_sub_t10,\
-            COALESCE(ABS(accx - accx_t10), 0) AS accx_sub_t10,\
-            COALESCE(ABS(accy - accy_t10), 0) AS accy_sub_t10,\
-            COALESCE(ABS(accz - accz_t10), 0) AS accz_sub_t10,\
-            COALESCE(ABS(gyrox - gyrox_t10), 0) AS gyrox_sub_t10,\
-            COALESCE(ABS(gyroy - gyroy_t10), 0) AS gyroy_sub_t10,\
-            COALESCE(ABS(gyroz - gyroz_t10), 0) AS gyroz_sub_t10,\
-            COALESCE(second - second_t10, 0) AS second_sub_t10,\
-            COALESCE(ABS(speed - speed_t10), 0) AS speed_sub_t10,\
-            COALESCE(ABS(acc3d - acc3d_t10), 0) AS acc3d_sub_t10,\
-            COALESCE(ABS(gyro3d - gyro3d_t10), 0) AS gyro3d_sub_t10,\
-            COALESCE(ABS(acc3dgyro3d - acc3dgyro3d_t10), 0) AS acc3dgyro3d_sub_t10,\
-            COALESCE(ABS(accx / accx_t10), 0) AS accx_div_t10,\
-            COALESCE(ABS(accy / accy_t10), 0) AS accy_div_t10,\
-            COALESCE(ABS(accz / accz_t10), 0) AS accz_div_t10,\
-            COALESCE(ABS(gyrox / gyrox_t10), 0) AS gyrox_div_t10,\
-            COALESCE(ABS(gyroy / gyroy_t10), 0) AS gyroy_div_t10,\
-            COALESCE(ABS(gyroz / gyroz_t10), 0) AS gyroz_div_t10,\
-            COALESCE(second / second_t10, 0) AS second_div_t10,\
-            COALESCE(ABS(speed / speed_t10), 0) AS speed_div_t10,\
-            COALESCE(ABS(acc3d / acc3d_t10), 0) AS acc3d_div_t10,\
-            COALESCE(ABS(gyro3d / gyro3d_t10), 0) AS gyro3d_div_t10,\
-            COALESCE(ABS(acc3dgyro3d / acc3dgyro3d_t10), 0) AS acc3dgyro3d_div_t10\
-        FROM sdf_2")
-    sdf_3.registerTempTable('sdf_3')
-
+            COALESCE(ABS(acc3dgyro3d - acc3dgyro3d_t5), 0) AS acc3dgyro3d_sub_t5\
+        FROM sdf_1_2")
+    sdf_1_3.registerTempTable('sdf_1_3')
 
     # 4th phase
     # Compute threshold
-    sdf_4 = spark.sql(
+    sdf_1_4 = spark.sql(
         "SELECT bookingID,\
             PERCENTILE(bearing_sub_t5, 0.7) AS bearing_sub_t5_70perc,\
             PERCENTILE(accx_sub_t5, 0.7) AS accx_sub_t5_70perc,\
@@ -224,201 +165,265 @@ def create_features(_dirpath):
             PERCENTILE(second_sub_t5, 0.7) AS second_sub_t5_70perc,\
             PERCENTILE(acc3d_sub_t5, 0.7) AS acc3d_sub_t5_70perc,\
             PERCENTILE(gyro3d_sub_t5, 0.7) AS gyro3d_sub_t5_70perc,\
-            PERCENTILE(acc3dgyro3d_sub_t5, 0.7) AS acc3dgyro3d_sub_t5_70perc,\
-            PERCENTILE(bearing_div_t5, 0.7) AS bearing_div_t5_70perc,\
-            PERCENTILE(accx_div_t5, 0.7) AS accx_div_t5_70perc,\
-            PERCENTILE(accy_div_t5, 0.7) AS accy_div_t5_70perc,\
-            PERCENTILE(accz_div_t5, 0.7) AS accz_div_t5_70perc,\
-            PERCENTILE(gyrox_div_t5, 0.7) AS gyrox_div_t5_70perc,\
-            PERCENTILE(gyroy_div_t5, 0.7) AS gyroy_div_t5_70perc,\
-            PERCENTILE(gyroz_div_t5, 0.7) AS gyroz_div_t5_70perc,\
-            PERCENTILE(second_div_t5, 0.7) AS second_div_t5_70perc,\
-            PERCENTILE(acc3d_div_t5, 0.7) AS acc3d_div_t5_70perc,\
-            PERCENTILE(gyro3d_div_t5, 0.7) AS gyro3d_div_t5_70perc,\
-            PERCENTILE(acc3dgyro3d_div_t5, 0.7) AS acc3dgyro3d_div_t5_70perc,\
-            PERCENTILE(bearing_sub_t10, 0.7) AS bearing_sub_t10_70perc,\
-            PERCENTILE(accx_sub_t10, 0.7) AS accx_sub_t10_70perc,\
-            PERCENTILE(accy_sub_t10, 0.7) AS accy_sub_t10_70perc,\
-            PERCENTILE(accz_sub_t10, 0.7) AS accz_sub_t10_70perc,\
-            PERCENTILE(gyrox_sub_t10, 0.7) AS gyrox_sub_t10_70perc,\
-            PERCENTILE(gyroy_sub_t10, 0.7) AS gyroy_sub_t10_70perc,\
-            PERCENTILE(gyroz_sub_t10, 0.7) AS gyroz_sub_t10_70perc,\
-            PERCENTILE(second_sub_t10, 0.7) AS second_sub_t10_70perc,\
-            PERCENTILE(acc3d_sub_t10, 0.7) AS acc3d_sub_t10_70perc,\
-            PERCENTILE(gyro3d_sub_t10, 0.7) AS gyro3d_sub_t10_70perc,\
-            PERCENTILE(acc3dgyro3d_sub_t10, 0.7) AS acc3dgyro3d_sub_t10_70perc,\
-            PERCENTILE(bearing_div_t10, 0.7) AS bearing_div_t10_70perc,\
-            PERCENTILE(accx_div_t10, 0.7) AS accx_div_t10_70perc,\
-            PERCENTILE(accy_div_t10, 0.7) AS accy_div_t10_70perc,\
-            PERCENTILE(accz_div_t10, 0.7) AS accz_div_t10_70perc,\
-            PERCENTILE(gyrox_div_t10, 0.7) AS gyrox_div_t10_70perc,\
-            PERCENTILE(gyroy_div_t10, 0.7) AS gyroy_div_t10_70perc,\
-            PERCENTILE(gyroz_div_t10, 0.7) AS gyroz_div_t10_70perc,\
-            PERCENTILE(second_div_t10, 0.7) AS second_div_t10_70perc,\
-            PERCENTILE(acc3d_div_t10, 0.7) AS acc3d_div_t10_70perc,\
-            PERCENTILE(gyro3d_div_t10, 0.7) AS gyro3d_div_t10_70perc,\
-            PERCENTILE(acc3dgyro3d_div_t10, 0.7) AS acc3dgyro3d_div_t10_70perc\
-        FROM sdf_3\
+            PERCENTILE(acc3dgyro3d_sub_t5, 0.7) AS acc3dgyro3d_sub_t5_70perc\
+        FROM sdf_1_3\
         GROUP BY bookingID")
-    sdf_4.registerTempTable('sdf_4')
+    sdf_1_4.registerTempTable('sdf_1_4')
 
-
-    # https://people.apache.org/~pwendell/spark-nightly/spark-master-docs/spark-2.3.0-SNAPSHOT-2017_12_08_04_01-26e6645-docs/api/sql/#percentile
     # 5th phase
     # Aggregate features into bookingID level
-    sdf_5 = spark.sql(
+    sdf_1_5 = spark.sql(
         "SELECT aa.bookingID,\
+            COUNT(second) AS datapoint_num,\
             MAX(aa.second) AS travel_sec,\
-            PERCENTILE(aa.speed, 0.99) AS speed_max,\
+            PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.99)  AS speed_sub_t5_max,\
+            STDDEV(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0)) AS speed_sub_t5_std,\
             AVG(aa.speed) AS speed_avg,\
-            STDDEV(aa.speed) AS speed_std,\
             PERCENTILE(aa.speed, 0.5) AS speed_med,\
+            PERCENTILE(aa.speed, 0.99) AS speed_max,\
+            PERCENTILE(ABS(COALESCE(aa.bearing_sub_t5/aa.second_sub_t5, 0)), 0.9) AS disp_sub_t5_90perc,\
+            COUNT(CASE WHEN aa.accx_sub_t5 > bb.accx_sub_t5_70perc THEN 1 END) accx_sub_t5_cnt70perc,\
             PERCENTILE(aa.speed, 0.8) AS speed_80perc,\
             PERCENTILE(aa.speed, 0.9) AS speed_90perc,\
-            PERCENTILE(aa.accx, 0.99) AS accx_max,\
-            AVG(aa.accx) AS accx_avg,\
-            STDDEV(aa.accx) AS accx_std,\
-            PERCENTILE(aa.accx, 0.5) AS accx_med,\
-            PERCENTILE(aa.accx, 0.8) AS accx_80perc,\
-            PERCENTILE(aa.accx, 0.9) AS accx_90perc,\
-            PERCENTILE(aa.accy, 0.99) AS accy_max,\
-            AVG(aa.accy) AS accy_avg,\
-            STDDEV(aa.accy) AS accy_std,\
-            PERCENTILE(aa.accy, 0.5) AS accy_med,\
-            PERCENTILE(aa.accy, 0.8) AS accy_80perc,\
-            PERCENTILE(aa.accy, 0.9) AS accy_90perc,\
-            PERCENTILE(aa.accz, 0.99) AS accz_max,\
-            AVG(aa.accz) AS accz_avg,\
-            STDDEV(aa.accz) AS accz_std,\
-            PERCENTILE(aa.accz, 0.5) AS accz_med,\
-            PERCENTILE(aa.accz, 0.8) AS accz_80perc,\
-            PERCENTILE(aa.accz, 0.9) AS accz_90perc,\
-            PERCENTILE(aa.gyrox, 0.99) AS gyrox_max,\
-            AVG(aa.gyrox) AS gyrox_avg,\
-            STDDEV(aa.gyrox) AS gyrox_std,\
-            PERCENTILE(aa.gyrox, 0.5) AS gyrox_med,\
-            PERCENTILE(aa.gyrox, 0.8) AS gyrox_80perc,\
-            PERCENTILE(aa.gyrox, 0.9) AS gyrox_90perc,\
-            PERCENTILE(aa.gyroy, 0.99) AS gyroy_max,\
-            AVG(aa.gyroy) AS gyroy_avg,\
-            STDDEV(aa.gyroy) AS gyroy_std,\
-            PERCENTILE(aa.gyroy, 0.5) AS gyroy_med,\
-            PERCENTILE(aa.gyroy, 0.8) AS gyroy_80perc,\
-            PERCENTILE(aa.gyroy, 0.9) AS gyroy_90perc,\
-            PERCENTILE(aa.gyroz, 0.99) AS gyroz_max,\
-            AVG(aa.gyroz) AS gyroz_avg,\
-            STDDEV(aa.gyroz) AS gyroz_std,\
-            PERCENTILE(aa.gyroz, 0.5) AS gyroz_med,\
-            PERCENTILE(aa.gyroz, 0.8) AS gyroz_80perc,\
-            PERCENTILE(aa.gyroz, 0.9) AS gyroz_90perc,\
-            PERCENTILE(aa.acc3d, 0.99) AS acc3d_max,\
-            AVG(aa.acc3d) AS acc3d_avg,\
-            STDDEV(aa.acc3d) AS acc3d_std,\
-            PERCENTILE(aa.acc3d, 0.5) AS acc3d_med,\
-            PERCENTILE(aa.acc3d, 0.8) AS acc3d_80perc,\
-            PERCENTILE(aa.acc3d, 0.9) AS acc3d_90perc,\
-            PERCENTILE(aa.gyro3d, 0.99) AS gyro3d_max,\
-            AVG(aa.gyro3d) AS gyro3d_avg,\
-            STDDEV(aa.gyro3d) AS gyro3d_std,\
-            PERCENTILE(aa.gyro3d, 0.5) AS gyro3d_med,\
-            PERCENTILE(aa.gyro3d, 0.8) AS gyro3d_80perc,\
-            PERCENTILE(aa.gyro3d, 0.9) AS gyro3d_90perc,\
-            PERCENTILE(aa.acc3dgyro3d, 0.99) AS acc3dgyro3d_70perc_max,\
-            AVG(aa.acc3dgyro3d) AS acc3dgyro3d_70perc_avg,\
-            STDDEV(aa.acc3dgyro3d) AS acc3dgyro3d_70perc_std,\
-            PERCENTILE(aa.acc3dgyro3d, 0.5) AS acc3dgyro3d_70perc_med,\
-            PERCENTILE(aa.acc3dgyro3d, 0.8) AS acc3dgyro3d_70perc_80perc,\
-            PERCENTILE(aa.acc3dgyro3d, 0.9) AS acc3dgyro3d_70perc_90perc,\
-            PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.99)  AS speed_sub_t5_max,\
-            AVG(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0)) AS speed_sub_t5_avg,\
-            STDDEV(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0)) AS speed_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.5) AS speed_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.8) AS speed_sub_t5_80perc,\
             PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.9) AS speed_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.accx_sub_t5/aa.second_sub_t5,0), 0.99)  AS accx_sub_t5_max,\
-            AVG(COALESCE(aa.accx_sub_t5/aa.second_sub_t5,0)) AS accx_sub_t5_avg,\
-            STDDEV(COALESCE(aa.accx_sub_t5/aa.second_sub_t5,0)) AS accx_sub_t5_std,\
+            AVG(ABS(COALESCE(aa.bearing_sub_t5/aa.second_sub_t5, 0))) AS disp_sub_t5_avg,\
+            COUNT(CASE WHEN aa.accy_sub_t5 > bb.accy_sub_t5_70perc THEN 1 END) accy_sub_t5_cnt70perc,\
+            STDDEV(aa.speed) AS speed_std,\
+            COUNT(CASE WHEN aa.accz_sub_t5 > bb.accz_sub_t5_70perc THEN 1 END) accz_sub_t5_cnt70perc,\
+            COUNT(CASE WHEN aa.speed_sub_t5 > bb.accx_sub_t5_70perc THEN 1 END) speed_sub_t5_cnt70perc,\
+            PERCENTILE(ABS(COALESCE(aa.bearing_sub_t5/aa.second_sub_t5, 0)), 0.99) AS disp_sub_t5_max,\
+            PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.5) AS speed_sub_t5_med,\
+            PERCENTILE(aa.gyroy, 0.5) AS gyroy_med,\
+            PERCENTILE(aa.gyroz, 0.5) AS gyroz_med,\
+            PERCENTILE(aa.accx, 0.99) AS accx_max,\
+            COUNT(CASE WHEN aa.gyrox_sub_t5 > bb.gyrox_sub_t5_70perc THEN 1 END) gyrox_sub_t5_cnt70perc,\
+            AVG(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0)) AS speed_sub_t5_avg,\
+            PERCENTILE(ABS(COALESCE(aa.bearing_sub_t5/aa.second_sub_t5, 0)), 0.8) AS disp_sub_t5_80perc,\
+            STDDEV(ABS(COALESCE(aa.bearing_sub_t5/aa.second_sub_t5, 0))) AS disp_sub_t5_std,\
+            STDDEV(aa.accz) AS accz_std,\
+            PERCENTILE(aa.gyrox, 0.5) AS gyrox_med,\
+            PERCENTILE(aa.accz, 0.99) AS accz_max,\
+            PERCENTILE(aa.accy, 0.99) AS accy_max,\
             PERCENTILE(COALESCE(aa.accx_sub_t5/aa.second_sub_t5,0), 0.5) AS accx_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.accx_sub_t5/aa.second_sub_t5,0), 0.8) AS accx_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.accx_sub_t5/aa.second_sub_t5,0), 0.9) AS accx_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.accy_sub_t5/aa.second_sub_t5,0), 0.99)  AS accy_sub_t5_max,\
-            AVG(COALESCE(aa.accy_sub_t5/aa.second_sub_t5,0)) AS accy_sub_t5_avg,\
-            STDDEV(COALESCE(aa.accy_sub_t5/aa.second_sub_t5,0)) AS accy_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.accy_sub_t5/aa.second_sub_t5,0), 0.5) AS accy_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.accy_sub_t5/aa.second_sub_t5,0), 0.8) AS accy_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.accy_sub_t5/aa.second_sub_t5,0), 0.9) AS accy_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.accz_sub_t5/aa.second_sub_t5,0), 0.99)  AS accz_sub_t5_max,\
-            AVG(COALESCE(aa.accz_sub_t5/aa.second_sub_t5,0)) AS accz_sub_t5_avg,\
-            STDDEV(COALESCE(aa.accz_sub_t5/aa.second_sub_t5,0)) AS accz_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.accz_sub_t5/aa.second_sub_t5,0), 0.5) AS accz_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.accz_sub_t5/aa.second_sub_t5,0), 0.8) AS accz_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.accz_sub_t5/aa.second_sub_t5,0), 0.9) AS accz_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.gyrox_sub_t5/aa.second_sub_t5,0), 0.99)  AS gyrox_sub_t5_max,\
-            AVG(COALESCE(aa.gyrox_sub_t5/aa.second_sub_t5,0)) AS gyrox_sub_t5_avg,\
-            STDDEV(COALESCE(aa.gyrox_sub_t5/aa.second_sub_t5,0)) AS gyrox_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.gyrox_sub_t5/aa.second_sub_t5,0), 0.5) AS gyrox_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.gyrox_sub_t5/aa.second_sub_t5,0), 0.8) AS gyrox_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.gyrox_sub_t5/aa.second_sub_t5,0), 0.9) AS gyrox_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.gyroy_sub_t5/aa.second_sub_t5,0), 0.99)  AS gyroy_sub_t5_max,\
-            AVG(COALESCE(aa.gyroy_sub_t5/aa.second_sub_t5,0)) AS gyroy_sub_t5_avg,\
-            STDDEV(COALESCE(aa.gyroy_sub_t5/aa.second_sub_t5,0)) AS gyroy_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.gyroy_sub_t5/aa.second_sub_t5,0), 0.5) AS gyroy_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.gyroy_sub_t5/aa.second_sub_t5,0), 0.8) AS gyroy_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.gyroy_sub_t5/aa.second_sub_t5,0), 0.9) AS gyroy_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.gyroz_sub_t5/aa.second_sub_t5,0), 0.99)  AS gyroz_sub_t5_max,\
-            AVG(COALESCE(aa.gyroz_sub_t5/aa.second_sub_t5,0)) AS gyroz_sub_t5_avg,\
-            STDDEV(COALESCE(aa.gyroz_sub_t5/aa.second_sub_t5,0)) AS gyroz_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.gyroz_sub_t5/aa.second_sub_t5,0), 0.5) AS gyroz_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.gyroz_sub_t5/aa.second_sub_t5,0), 0.8) AS gyroz_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.gyroz_sub_t5/aa.second_sub_t5,0), 0.9) AS gyroz_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.acc3d_sub_t5/aa.second_sub_t5,0), 0.99)  AS acc3d_sub_t5_max,\
-            AVG(COALESCE(aa.acc3d_sub_t5/aa.second_sub_t5,0)) AS acc3d_sub_t5_avg,\
-            STDDEV(COALESCE(aa.acc3d_sub_t5/aa.second_sub_t5,0)) AS acc3d_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.acc3d_sub_t5/aa.second_sub_t5,0), 0.5) AS acc3d_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.acc3d_sub_t5/aa.second_sub_t5,0), 0.8) AS acc3d_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.acc3d_sub_t5/aa.second_sub_t5,0), 0.9) AS acc3d_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.gyro3d_sub_t5/aa.second_sub_t5,0), 0.99)  AS gyro3d_sub_t5_max,\
-            AVG(COALESCE(aa.gyro3d_sub_t5/aa.second_sub_t5,0)) AS gyro3d_sub_t5_avg,\
-            STDDEV(COALESCE(aa.gyro3d_sub_t5/aa.second_sub_t5,0)) AS gyro3d_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.gyro3d_sub_t5/aa.second_sub_t5,0), 0.5) AS gyro3d_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.gyro3d_sub_t5/aa.second_sub_t5,0), 0.8) AS gyro3d_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.gyro3d_sub_t5/aa.second_sub_t5,0), 0.9) AS gyro3d_sub_t5_90perc,\
-            PERCENTILE(COALESCE(aa.acc3dgyro3d_sub_t5/aa.second_sub_t5,0), 0.99)  AS acc3dgyro3d_sub_t5_max,\
-            AVG(COALESCE(aa.acc3dgyro3d_sub_t5/aa.second_sub_t5,0)) AS acc3dgyro3d_sub_t5_avg,\
-            STDDEV(COALESCE(aa.acc3dgyro3d_sub_t5/aa.second_sub_t5,0)) AS acc3dgyro3d_sub_t5_std,\
-            PERCENTILE(COALESCE(aa.acc3dgyro3d_sub_t5/aa.second_sub_t5,0), 0.5) AS acc3dgyro3d_sub_t5_med,\
-            PERCENTILE(COALESCE(aa.acc3dgyro3d_sub_t5/aa.second_sub_t5,0), 0.8) AS acc3dgyro3d_sub_t5_80perc,\
-            PERCENTILE(COALESCE(aa.acc3dgyro3d_sub_t5/aa.second_sub_t5,0), 0.9) AS acc3dgyro3d_sub_t5_90perc,\
-            PERCENTILE(COALESCE(SQRT(POW(aa.accx-aa.accx_t5, 2)+POW(aa.accy-aa.accy_t5, 2)+POW(aa.accz-aa.accz_t5, 2))/aa.speed_sub_t5, 0), 0.99) AS accx_vec_t5_max,\
-            AVG(COALESCE(SQRT(POW(aa.accx-aa.accx_t5, 2)+POW(aa.accy-aa.accy_t5, 2)+POW(aa.accz-aa.accz_t5, 2))/aa.speed_sub_t5, 0)) AS accx_vec_t5_avg,\
-            STDDEV(COALESCE(SQRT(POW(aa.accx-aa.accx_t5, 2)+POW(aa.accy-aa.accy_t5, 2)+POW(aa.accz-aa.accz_t5, 2))/aa.speed_sub_t5, 0)) AS accx_vec_t5_std,\
-            PERCENTILE(COALESCE(SQRT(POW(aa.accx-aa.accx_t5, 2)+POW(aa.accy-aa.accy_t5, 2)+POW(aa.accz-aa.accz_t5, 2))/aa.speed_sub_t5, 0), 0.5) AS accx_vec_t5_med,\
-            PERCENTILE(COALESCE(SQRT(POW(aa.accx-aa.accx_t5, 2)+POW(aa.accy-aa.accy_t5, 2)+POW(aa.accz-aa.accz_t5, 2))/aa.speed_sub_t5, 0), 0.8) AS accx_vec_t5_80perc,\
-            PERCENTILE(COALESCE(SQRT(POW(aa.accx-aa.accx_t5, 2)+POW(aa.accy-aa.accy_t5, 2)+POW(aa.accz-aa.accz_t5, 2))/aa.speed_sub_t5, 0), 0.9) AS accx_vec_t5_90perc,\
-            PERCENTILE(ABS(COALESCE(aa.bearing_sub_t5/aa.speed_sub_t5, 0)), 0.99) AS disp_sub_t5_max,\
-            AVG(ABS(COALESCE(aa.bearing_sub_t5/aa.speed_sub_t5, 0))) AS disp_sub_t5_avg,\
-            STDDEV(ABS(COALESCE(aa.bearing_sub_t5/aa.speed_sub_t5, 0))) AS disp_sub_t5_std,\
-            PERCENTILE(ABS(COALESCE(aa.bearing_sub_t5/aa.speed_sub_t5, 0)), 0.5) AS disp_sub_t5_med,\
-            PERCENTILE(ABS(COALESCE(aa.bearing_sub_t5/aa.speed_sub_t5, 0)), 0.8) AS disp_sub_t5_80perc,\
-            PERCENTILE(ABS(COALESCE(aa.bearing_sub_t5/aa.speed_sub_t5, 0)), 0.9) AS disp_sub_t5_90perc\
-        FROM sdf_3 aa\
+            PERCENTILE(COALESCE(aa.speed_sub_t5/aa.second_sub_t5,0), 0.8) AS speed_sub_t5_80perc,\
+            COUNT(CASE WHEN aa.gyroy_sub_t5 > bb.gyroy_sub_t5_70perc THEN 1 END) gyroy_sub_t5_cnt70perc\
+        FROM sdf_1_3 aa LEFT JOIN sdf_1_4 bb ON aa.bookingID=bb.bookingID\
         GROUP BY 1")
-    sdf_5.registerTempTable('sdf_5')
+    sdf_1_5.registerTempTable('sdf_1_5')
+
+
+    ## Feature Engineering 2 ##
+    # 1st phase pre-processing
+    sdf_2_1 = spark.sql(
+        "SELECT *,\
+            ROW_NUMBER() OVER (PARTITION BY bookingID ORDER BY second) AS sequence\
+        FROM sdf_1_1")
+    sdf_2_1.registerTempTable('sdf_2_1')
+
+    # 2nd phase pre-processing
+    # Extract records from t-1 point of time
+    sdf_2_2 = spark.sql(
+        "SELECT *,\
+            LAG(bearing, 1) OVER(PARTITION BY bookingID ORDER BY second) AS bearing_t1,\
+            LAG(accx, 1) OVER(PARTITION BY bookingID ORDER BY second) AS accx_t1,\
+            LAG(accy, 1) OVER(PARTITION BY bookingID ORDER BY second) AS accy_t1,\
+            LAG(accy, 1) OVER(PARTITION BY bookingID ORDER BY second) AS accz_t1,\
+            LAG(gyrox, 1) OVER(PARTITION BY bookingID ORDER BY second) AS gyrox_t1,\
+            LAG(gyroy, 1) OVER(PARTITION BY bookingID ORDER BY second) AS gyroy_t1,\
+            LAG(gyroz, 1) OVER(PARTITION BY bookingID ORDER BY second) AS gyroz_t1,\
+            LAG(second, 1) OVER(PARTITION BY bookingID ORDER BY second) AS second_t1,\
+            LAG(speed, 1) OVER(PARTITION BY bookingID ORDER BY second) AS speed_t1,\
+            LAG(acc3d, 1) OVER(PARTITION BY bookingID ORDER BY second) AS acc3d_t1,\
+            LAG(gyro3d, 1) OVER(PARTITION BY bookingID ORDER BY second) AS gyro3d_t1,\
+            LAG(acc3dgyro3d, 1) OVER(PARTITION BY bookingID ORDER BY second) AS acc3dgyro3d_t1\
+        FROM sdf_2_1")
+    sdf_2_2.registerTempTable('sdf_2_2')
+
+    # 3rd phase pre-processing
+    # Calculate sign in between of each point of time
+    sdf_2_3 = spark.sql(
+        "SELECT bookingID, second, sequence,\
+            SIGN(ABS(accx - COALESCE(accx_t1, 0))) AS sgn_accx,\
+            SIGN(ABS(accy - COALESCE(accy_t1, 0))) AS sgn_accy,\
+            SIGN(ABS(accz - COALESCE(accz_t1, 0))) AS sgn_accz,\
+            SIGN(ABS(gyrox - COALESCE(gyrox_t1, 0))) AS sgn_gyrox,\
+            SIGN(ABS(gyroy - COALESCE(gyroy_t1, 0))) AS sgn_gyroy,\
+            SIGN(ABS(gyroz - COALESCE(gyroz_t1, 0))) AS sgn_gyroz,\
+            SIGN(speed - COALESCE(speed_t1, 0)) AS sgn_speed,\
+            SIGN(second - COALESCE(second_t1, 0)) AS sgn_second,\
+            SIGN(acc3d - COALESCE(acc3d_t1, 0)) AS sgn_acc3d,\
+            SIGN(gyro3d - COALESCE(gyro3d_t1, 0)) AS sgn_gyro3d,\
+            SIGN(acc3dgyro3d - COALESCE(acc3dgyro3d_t1, 0)) AS sgn_acc3dgyro3d\
+            FROM sdf_2_2")
+    sdf_2_3.registerTempTable('sdf_2_3')
+
+    # 4th phase pre-processing
+    sdf_2_4 = spark.sql(
+        "SELECT bookingID, sequence,\
+            sgn_speed,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_speed ORDER BY second) AS group_speed,\
+            sgn_accx,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_accx ORDER BY second) AS group_accx,\
+            sgn_accy,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_accy ORDER BY second) AS group_accy,\
+            sgn_accz,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_accy ORDER BY second) AS group_accz,\
+            sgn_gyrox,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_gyrox ORDER BY second) AS group_gyrox,\
+            sgn_gyroy,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_gyroy ORDER BY second) AS group_gyroy,\
+            sgn_gyroz,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_gyroz ORDER BY second) AS group_gyroz,\
+            sgn_acc3d,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_acc3d ORDER BY second) AS group_acc3d,\
+            sgn_gyro3d,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_gyro3d ORDER BY second) AS group_gyro3d,\
+            sgn_acc3dgyro3d,\
+            sequence - ROW_NUMBER() OVER (PARTITION BY bookingID, sgn_acc3dgyro3d ORDER BY second) AS group_acc3dgyro3d\
+        FROM sdf_2_3")
+    sdf_2_4.registerTempTable('sdf_2_4')
+
+    # 5th phase pre-processing
+    # Calculate the longest consecutive value increase in each feature
+    sdf_2_5_speed = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS speed_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_speed=1 GROUP BY bookingID, group_speed\
+        ")
+    sdf_2_5_speed.registerTempTable('sdf_2_5_speed')
+
+    sdf_2_5_accx = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS accx_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_accx=1 GROUP BY bookingID, group_accx\
+        ")
+    sdf_2_5_accx.registerTempTable('sdf_2_5_accx')
+
+    sdf_2_5_accy = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS accy_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_accy=1 GROUP BY bookingID, group_accy\
+        ")
+    sdf_2_5_accy.registerTempTable('sdf_2_5_accy')
+
+    sdf_2_5_accz = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS accz_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_accz=1 GROUP BY bookingID, group_accz\
+        ")
+    sdf_2_5_accz.registerTempTable('sdf_2_5_accz')
+
+    sdf_2_5_gyrox = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS gyrox_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_gyrox=1 GROUP BY bookingID, group_gyrox\
+        ")
+    sdf_2_5_gyrox.registerTempTable('sdf_2_5_gyrox')
+
+    sdf_2_5_gyroy = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS gyroy_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_gyroy=1 GROUP BY bookingID, group_gyroy\
+        ")
+    sdf_2_5_gyroy.registerTempTable('sdf_2_5_gyroy')
+
+    sdf_2_5_gyroz = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS gyroz_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_gyroz=1 GROUP BY bookingID, group_gyroz\
+        ")
+    sdf_2_5_gyroz.registerTempTable('sdf_2_5_gyroz')
+
+    sdf_2_5_acc3d = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS acc3d_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_acc3d=1 GROUP BY bookingID, group_acc3d\
+        ")
+    sdf_2_5_acc3d.registerTempTable('sdf_2_5_acc3d')
+
+    sdf_2_5_gyro3d = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS gyro3d_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_gyro3d=1 GROUP BY bookingID, group_gyro3d\
+        ")
+    sdf_2_5_gyro3d.registerTempTable('sdf_2_5_gyro3d')
+
+    sdf_2_5_acc3dgyro3d = spark.sql(
+        "SELECT DISTINCT bookingID,\
+            MAX(COUNT(*)) OVER (PARTITION BY bookingID) AS acc3dgyro3d_max_inc_num\
+        FROM sdf_2_4\
+        WHERE sgn_acc3dgyro3d=1 GROUP BY bookingID, group_acc3dgyro3d\
+        ")
+    sdf_2_5_acc3dgyro3d.registerTempTable('sdf_2_5_acc3dgyro3d')
+
+    # 6th phase pre-processing
+    # Join tables into one
+    sdf_2_6 = spark.sql(
+        "SELECT sdf_2_5_speed.bookingID,\
+            sdf_2_5_speed.speed_max_inc_num,\
+            sdf_2_5_accx.accx_max_inc_num,\
+            sdf_2_5_accy.accy_max_inc_num,\
+            sdf_2_5_accz.accz_max_inc_num,\
+            sdf_2_5_gyrox.gyrox_max_inc_num,\
+            sdf_2_5_gyroy.gyroy_max_inc_num,\
+            sdf_2_5_gyroz.gyroz_max_inc_num,\
+            sdf_2_5_acc3d.acc3d_max_inc_num,\
+            sdf_2_5_gyro3d.gyro3d_max_inc_num,\
+            sdf_2_5_acc3dgyro3d.acc3dgyro3d_max_inc_num\
+        FROM sdf_2_5_speed\
+            LEFT JOIN sdf_2_5_accx ON sdf_2_5_speed.bookingID=sdf_2_5_accx.bookingID\
+            LEFT JOIN sdf_2_5_accy ON sdf_2_5_speed.bookingID=sdf_2_5_accy.bookingID\
+            LEFT JOIN sdf_2_5_accz ON sdf_2_5_speed.bookingID=sdf_2_5_accz.bookingID\
+            LEFT JOIN sdf_2_5_gyrox ON sdf_2_5_speed.bookingID=sdf_2_5_gyrox.bookingID\
+            LEFT JOIN sdf_2_5_gyroy ON sdf_2_5_speed.bookingID=sdf_2_5_gyroy.bookingID\
+            LEFT JOIN sdf_2_5_gyroz ON sdf_2_5_speed.bookingID=sdf_2_5_gyroz.bookingID\
+            LEFT JOIN sdf_2_5_acc3d ON sdf_2_5_speed.bookingID=sdf_2_5_acc3d.bookingID\
+            LEFT JOIN sdf_2_5_gyro3d ON sdf_2_5_speed.bookingID=sdf_2_5_gyro3d.bookingID\
+            LEFT JOIN sdf_2_5_acc3dgyro3d ON sdf_2_5_speed.bookingID=sdf_2_5_acc3dgyro3d.bookingID")
+    sdf_2_6.registerTempTable('sdf_2_6')
+
+    ## Feature Engineering final ##
+    # Create final aggregated feature table
+    sdf_final = spark.sql(
+        "SELECT sdf_1_5.*,\
+            sdf_2_6.speed_max_inc_num,\
+            sdf_2_6.accx_max_inc_num,\
+            sdf_2_6.accy_max_inc_num,\
+            sdf_2_6.accz_max_inc_num,\
+            sdf_2_6.gyrox_max_inc_num,\
+            sdf_2_6.gyroy_max_inc_num,\
+            sdf_2_6.gyroz_max_inc_num,\
+            sdf_2_6.acc3d_max_inc_num,\
+            sdf_2_6.gyro3d_max_inc_num,\
+            sdf_2_6.acc3dgyro3d_max_inc_num\
+            FROM sdf_1_5\
+                LEFT JOIN sdf_2_6 ON sdf_1_5.bookingID=sdf_2_6.bookingID")
+    sdf_final.registerTempTable('sdf_final')
+
     # Create feature file
     try:
-        sdf_5.coalesce(1).write.mode('overwrite').csv(_dirpath, header=True)
+        sdf_final.coalesce(1).write.mode('overwrite').csv(_dirpath, header=True)
     except Exception as e:
         logger.error('Failed to create features')
         logger.error('Exception on create_features(): '+str(e))
         raise
 
-
 if __name__ == '__main__':
+    logger.info('create_features.py start!')
     start = time.time()
     logger.info('Load data files from ' + _telematics_data_dir + _csv_filenames)
-    load_data_into_spark(_filepath=_telematics_data_dir+_csv_filenames)
+    sdf_raw = load_data_into_spark(_filepath=_telematics_data_dir+_csv_filenames)
     logger.info('Create features')
-    create_features(_dirpath=_feature_data_dir)
+    create_features(_dirpath=_feature_data_dir, _sdf_raw=sdf_raw)
     process_time = round(time.time() - start, 2)
     logger.info('Elapsed time: ' + str(process_time) + 'sec')
-    logger.info('create_dataset() completed!')
+    logger.info('create_features.py completed!')
