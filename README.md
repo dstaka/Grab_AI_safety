@@ -65,7 +65,7 @@ $ python detect_dangerdrive.py train
 ## Findings & insight
  - A travel time is the most important feature according to XGBoost feature importance. It suggests that longer a drive, more a user may have more chance to feel danger. It makes sense but longer drive isn't necessary dangerous one.
  - In addition, there would be individual variation whether a user feels drive is dangerous or not. Also, a user might not report to Grab even if he had dangerous travel. Thus, I'm afraid that labelling could be biased.
- - Therefore, we may need to think of another way to annotate data for supervised learning, or to detect dangerous drive by using unsupervised learning. 
+ - Therefore, we may need to think of another way in order to annotate data for supervised learning, or to detect dangerous driver by using unsupervised learning. 
 ## Use cases of the model built in the project
  - Grab provides function that enables a user to report in case that a drive was dangerous. However, there would be individual variation whether a user feels drive is dangerous or not. Also, a user might not report to Grab even if he had dangerous travel. Hence, the detective model can be used to identify danger drive even though a user doesn't report so. By identifying a driver who is more likely to drive such a way, Grab can alert to the driver and educate him before causing serious accident.
  - Realize real-time dangerous drive detection by building a model which utilizes telematics data generated on halfway drive. Streaming data processing technologies such as Spark Streaming and Kafka could be helpful to ingest real-time data and make a prediction on the fly. By implementing such a real-time detection system, Grab can send push notification so that a driver is warned.
