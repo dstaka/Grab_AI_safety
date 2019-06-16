@@ -1,0 +1,21 @@
+# Ignore files under following files and directories (except .gitkeep files)
+raw_data/train/*.csv
+raw_data/train/*.crc
+raw_data/test/*.csv
+raw_data/test/*.crc
+log/*.log
+*.pyc
+__pycache__
+!.gitkeep
+.DS_Store
+.log
+labels/train/*.csv
+labels/test/*.csv
+_SUCCESS
+dataset/train/*.csv
+dataset/train/*.crc
+dataset/test/*.csv
+dataset/test/*.crc
+.ipynb_checkpoints/*
+derby.log
+metastore_db/
