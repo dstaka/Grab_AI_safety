@@ -112,7 +112,7 @@ def select_model(_X_train, _y_train, _scoring_metric, _num_fold):
                 'min_child_weight': [1],
                 'max_delta_step' : [1],
                 'subsample': [0.5, 1],
-                'silent': 1, 
+                'silent': [1], 
                 'colsample_bytree': [0.5, 0.7],
                 'colsample_bylevel': [0.5, 0.7],
                 'nthread': [16],
