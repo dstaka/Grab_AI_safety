@@ -52,15 +52,20 @@ $ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --exec
 $ python build_model.py  
 3. Run the model by running Python program  
 $ python detect_dangerdrive.py train  
-
-
+## Feature engineering
+ - 
+## Technologies employed
+ - Spark is used for creating features by bookingID level given telematics data. Although Pandas could be enough to handle data provided for this challenge, I exploited Spark for the purpose of scalability because Grab has vast amounts of telematics data with millions of user base. By using Spark, the solution can be scaled easily.
+ - As for modelling framework, XGBoost with Scikit-learn is used for the challenge because aggregated data can be not so huge compared to raw telematics data. If Grab integrates the solution into Spark from end-to-end, Spark ML would be used for building model.
+ - Regarding modelling algorithm, XGBoost is employed because GBDT based model is strong in cross tabular data.  
 ## Use cases of the model built in the project
  - Grab provides function that enables a user to report in case that a drive was dangerous. However, there would be individual variation whether a user feels drive is dangerous or not. Also, a user might not report to Grab even if he had dangerous travel. Hence, the detective model can be used to identify danger drive even though a user doesn't report so. By identifying a driver who is more likely to drive such a way, Grab can alert to the driver and educate him before causing serious accident.
  - Realize real-time dangerous drive detection by building a model which utilizes telematics data generated on halfway drive. Streaming data processing technologies such as Spark Streaming and Kafka could be helpful to ingest real-time data and make a prediction on the fly. By implementing such a real-time detection system, Grab can send push notification so that a driver is warned.
 
 
-## Future works
+## Future work
  - Implement prototype application by using Spark Streaming and Kafka in order to realize real-time data ingestion and prediction system.
  - Collect image data during travel to build image recognition model to detect drowsy driving. The model will contribute to identify dangerous drive from another point of view. To collect such data, Grab may provide incentive to a driver who allows Grab to collect real-time image data via smartphone camera.  
+ - Experiment on other modelling algorithms such as Deep Neural Network, unsupervised abnormal detection approach, etc  
  - Dockerize an application for productionalization
 
