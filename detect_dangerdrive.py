@@ -24,11 +24,15 @@ import sklearn.preprocessing as sp
 import pickle
 import logging
 import logging.config
+import sys
+args = sys.argv
+data_type = args[1] # Either "train" or "test"
+# data_type = 'test'
 
 target = 'label'
-feature_file_path = './dataset/test/part-*.csv'
-label_file_path = './labels/test/part-*.csv'
-output_file_path = './dataset/test/modelling_dataset.csv'
+feature_file_path = './dataset/' + data_type + '/part-*.csv'
+label_file_path = './labels/' + data_type + '/part-*.csv'
+output_file_path = './dataset/' + data_type + '/modelling_dataset.csv'
 scoring_metric = 'roc_auc'
 
 # Set logger
@@ -75,4 +79,4 @@ if __name__ == '__main__':
             'detect_dangerdrive.py: Failed to score danger drive!')
         logger.error('Exception on score_dangerdrive(): '+str(e))
         raise
-    logger.info('build_model.py completed!')
+    logger.info('detect_dangerdrive.py completed!')
