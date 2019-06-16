@@ -59,9 +59,11 @@ $ python detect_dangerdrive.py train
 ### Accelerometer readings calibration
  - Accelerometer readings are affected by gravity. Effect of gravity in each axis depends on how a mobile device is inclined in a car. Hence, gravity effect is approximated by averaging accelerometer readings when speed is less than 3 percentile. Here, I assume that a car doesn't accelerate when speed is zero, or very slow. In these points of time, accelerometer measures only gravity effect. So I just calculate such a gravity effect by each drive, then subtract in each readings in order to calibration.  
 ### Features derived
- - SQRT(accx*accx + accy*accy + accz*accz) AS acc3d,\
-            SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz) AS gyro3d,\
-            SQRT(accx*accx + accy*accy + accz*accz)*SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz)
+ - Basic representative values such as max, median, 80 percentile, etc is computed in each drive.
+ - Accelerometer and gyrometer readings provides values in each axis, so these values are aggregated by computing as following.
+  -- SQRT(accx*accx + accy*accy + accz*accz)
+  -- SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz)
+  -- SQRT(accx*accx + accy*accy + accz*accz)*SQRT(gyrox*gyrox + gyroy*gyroy + gyroz*gyroz)
 ## Technologies employed
  - Spark is used for creating features by bookingID level given telematics data. Although Pandas could be enough to handle data provided for this challenge, I exploited Spark for the purpose of scalability because Grab has vast amounts of telematics data with millions of user base. By using Spark, the solution can be scaled easily.  
  - As for modelling framework, XGBoost with Scikit-learn is used for the challenge because aggregated data can be not so huge compared to raw telematics data. If Grab integrates the solution into Spark from end-to-end, Spark ML would be used for building model.  
