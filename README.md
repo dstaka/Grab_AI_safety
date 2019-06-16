@@ -53,6 +53,9 @@ $ python build_model.py
 3. Run the model by running Python program  
 $ python detect_dangerdrive.py train  
 ## Feature engineering
+### Pre-process
+ - There are some abnormal values in data. For example, there are records whose speed=-1. If speed is negative value, the value is replaced with 0. Also, if speed exceeds 300km (i.e. 83.34 m/s), replace with 83.34.
+ - There are records whose second values are same in each bookingID. (i.e. one travel records might have multiple records whose second values are same). In that case, values of a record is averaged by second.
  - 
 ## Technologies employed
  - Spark is used for creating features by bookingID level given telematics data. Although Pandas could be enough to handle data provided for this challenge, I exploited Spark for the purpose of scalability because Grab has vast amounts of telematics data with millions of user base. By using Spark, the solution can be scaled easily.
