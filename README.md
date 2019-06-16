@@ -16,7 +16,7 @@ Environment:
 1. Set up Ubuntu server  
 2. Install Python 3.6.8 and Spark 2.3.3  
 3. Install packages  
-XXX  
+pip install -r requirements.txt  
 4. Clone this Git repository on the server  
 5. Change directory  
 $ cd ./Grab_AI_safety  
