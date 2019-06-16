@@ -19,22 +19,29 @@ Environment:
 XXX  
 4. Clone this Git repository on the server  
 5. Change directory  
-cd ./Grab_AI_safety  
+$ cd ./Grab_AI_safety  
 6. Download testing data file on following directories  
- - Telematics data: raw_data/test 
+ - Telematics data: ./raw_data/test  
+ (e.g.) ./raw_data/test/part-00000-e6120af0-10c2-4248-97c4-81baf4304e5c-c000.csv  
  - Label data: ./label/test/  
+ (e.g.) ./labels/test/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv  
 7. Create features for testing dataset by running Spark job  
-nohup spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_features.py test &  
+$ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_features.py test &  
 Note: 
  - executor-cores, executor-memory, and driver-memory options need to be set according to your environment  
 8. Run pre-built model by running Python program  
-python detect_dangerdrive.py test  
-Note: 
- - XGBoost model file is uploaded on this repository (./model/XXX.pickle)    
+$ python detect_dangerdrive.py test  
+## Note:  
+ - XGBoost model file is uploaded on this repository (./model/xgb_model_fulldata.pkl)  
  - detect_dangerdrive.py loads the model and make prediction  
- - If you would like to build model by yourself, you need to do as following  
-## Note:
- -   
+ - If you would like to build model by yourself, you need to follow these steps  
+1. Create features for testing dataset by running Spark job  
+$ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_features.py train & 
+2. Build XGBoost model by using training data  
+$ python build_model.py  
+3. Run the model by running Python program  
+$ python detect_dangerdrive.py train  
+
 
 ## Idea memo:
  - Label is given by customers, but some users may be more likely to label as "dangerous", vice versa.
