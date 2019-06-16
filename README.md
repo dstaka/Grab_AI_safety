@@ -21,8 +21,10 @@ XXX
 5. Change directory  
 $ cd ./Grab_AI_safety  
 6. Download testing data file on following directories  
- - Telematics data: ./raw_data/test (e.g. ./raw_data/test/part-00000-e6120af0-10c2-4248-97c4-81baf4304e5c-c000.csv)  
- - Label data: ./label/test/ (e.g. ./labels/test/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv)  
+ - Telematics data: ./raw_data/test  
+ (e.g.) ./raw_data/test/part-00000-e6120af0-10c2-4248-97c4-81baf4304e5c-c000.csv  
+ - Label data: ./label/test/  
+ (e.g.) ./labels/test/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv  
 7. Create features for testing dataset by running Spark job  
 $ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_features.py test &  
 Note: 
