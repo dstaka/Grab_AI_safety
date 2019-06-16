@@ -54,11 +54,11 @@ $ python build_model.py
 $ python detect_dangerdrive.py train  
 
 
-## Idea memo:
+## Usecases of the model built in the project
  - Label is given by customers, but some users may be more likely to label as "dangerous", vice versa.
- - This model helps Grab to identify characteristics & trend of dangerous driving even if a customer does not give feedback
- - By using Spark Streaming & Kafka, dangerous drive could be identified (by sudden acc, keep increasing speed, etc), then Grab can send push notification to a driver in order to alert.
- - Dockerize: https://qiita.com/kon_yu/items/7c40f4dfbd1cce006ce7
 
-## 
+
+## Future works
+ - Realize real-time dangerous drive detection by building a model which utilizes telematics data generated on partway drive. Streaming data processing technologies such as Spark Streaming and Kafka could be helpful to ingest real-time data and make a prediction. By implementing such a real-time detection system, Grab can send push notification so that a driver is warned.
+ - Dockerize an application for productionalization
 
