@@ -11,6 +11,19 @@ https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
  - Python: Python 3.6.8  
   - As for Python packagesm, refer requirement.txt  
  - Spark: Spark 2.3.3  
+## Directories
+ - config: For common config file (for logger setting)  
+ - raw_data: For telematics raw data files  
+ - labels: For label files 
+ - dataset: For modelling dataset created by create_features.py  
+ - log: For job log file 
+ - model: For predictive model pickle file  
+ - python_module: For common Python module file  
+ - jupyter_notebooks: For Jupyter Notebook files  
+## Python codes
+ - create_features.py: For creating features given telematics raw data files  
+ - build_model.py: For building model to detect if a drive is danger  
+ - detect_dangerdrive.py: For detecting danger drive and compute AUC score given dataset and label  
 ## Procedure to run the model for testing dataset
 1. Set up Ubuntu server  
 2. Install Python 3.6.8 and Spark 2.3.3  
