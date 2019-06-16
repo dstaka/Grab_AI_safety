@@ -53,7 +53,7 @@ def load_data_into_spark(_filepath):
     return sdf_raw
     
 
-def create_features(_dirpath, _sdf_raw):
+def create_dataset(_dirpath, _sdf_raw):
     # Register table
     _sdf_raw.registerTempTable('sdf_raw')
 
@@ -422,8 +422,8 @@ if __name__ == '__main__':
     start = time.time()
     logger.info('Load data files from ' + _telematics_data_dir + _csv_filenames)
     sdf_raw = load_data_into_spark(_filepath=_telematics_data_dir+_csv_filenames)
-    logger.info('Create features')
-    create_features(_dirpath=_feature_data_dir, _sdf_raw=sdf_raw)
+    logger.info('create_dataset() start')
+    create_dataset(_dirpath=_feature_data_dir, _sdf_raw=sdf_raw)
     process_time = round(time.time() - start, 2)
     logger.info('Elapsed time: ' + str(process_time) + 'sec')
     logger.info('create_features.py completed!')
