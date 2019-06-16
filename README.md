@@ -11,6 +11,17 @@ https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
  - Python: Python 3.6.8  
   - As for Python packagesm, refer requirement.txt  
  - Spark: Spark 2.3.3  
+## Directories
+ - config: For common config file (for logger setting)  
+ - raw_data: For telematics raw data files  
+ - labels: For label files 
+ - dataset: For modelling dataset created by create_features.py  
+ - log: For job log file 
+ - model: For predictive model pickle file  
+ - python_module: For common Python module file  
+ - jupyter_notebooks: For Jupyter Notebook files  
+ 
+
 ## Procedure to run the model for testing dataset
 1. Set up Ubuntu server  
 2. Install Python 3.6.8 and Spark 2.3.3  
