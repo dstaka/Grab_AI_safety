@@ -43,7 +43,7 @@ https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
 4. Change directory  
 $ cd ./Grab_AI_safety  
 5. Install packages  
-sudo pip3 install -r requirements.txt  
+$ sudo pip3 install -r requirements.txt  
 6. Download testing data file on following directories  
  - Telematics data: ./raw_data/test  
  (e.g.) ./raw_data/test/part-00000-e6120af0-10c2-4248-97c4-81baf4304e5c-c000.csv  
