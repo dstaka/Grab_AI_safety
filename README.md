@@ -59,12 +59,17 @@ $ python detect_dangerdrive.py test
  - XGBoost model file has already been uploaded on this repository (See ./model/xgb_model_fulldata.pkl)  
  - detect_dangerdrive.py loads the model and make a prediction  
  - If you would like to build model by yourself, you need to follow these steps  
-1. Create features for training dataset by running Spark job  
+1. Download training data file on following directories  
+Telematics data: ./raw_data/test  
+(e.g.) ./raw_data/train/part-00000-e6120af0-10c2-4248-97c4-81baf4304e5c-c000.csv  
+Label data: ./label/train/  
+(e.g.) ./labels/test/part-00000-e9445087-aa0a-433b-a7f6-7f4c19d78ad6-c000.csv  
+2. Create features for training dataset by running Spark job  
 $ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_features.py train &  
 * Files will be created on ./dataset/train directory
-2. Build XGBoost model by using training data  
+3. Build XGBoost model by using training data  
 $ python build_model.py  
-3. Detect dangerous drive by running Python program  
+4. Detect dangerous drive by running Python program  
 $ python detect_dangerdrive.py train  
 ## Feature engineering
 ### Abnormal value handling
