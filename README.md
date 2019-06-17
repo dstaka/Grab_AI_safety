@@ -80,9 +80,9 @@ $ python detect_dangerdrive.py train
 ### Features derived
  - Basic representative values such as max, median, 80 percentile, etc is computed in each drive.
  - Accelerometer and gyrometer readings provides values in each axis, so these values are aggregated by computing as following.  
-  -- acc3d: SQRT(accx * accx + accy * accy + accz * accz)  
-  -- gyro3d: SQRT(gyrox * gyrox + gyroy * gyroy + gyroz * gyroz)  
-  -- acc3dgyro3d: SQRT(accx * accx + accy * accy + accz * accz) * SQRT(gyrox * gyrox + gyroy * gyroy + gyroz * gyroz)  
+  -acc3d: SQRT(accx * accx + accy * accy + accz * accz)  
+  -gyro3d: SQRT(gyrox * gyrox + gyroy * gyroy + gyroz * gyroz)  
+  -acc3dgyro3d: SQRT(accx * accx + accy * accy + accz * accz) * SQRT(gyrox * gyrox + gyroy * gyroy + gyroz * gyroz)  
  - Difference of readings between `t` and `t-5` are calculated in order to represent how much speed and direction differs within a certain period.  
  - The number of consecutive reading values increase is calculated.  
 ## Technologies employed
