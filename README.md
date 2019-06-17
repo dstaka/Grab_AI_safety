@@ -73,7 +73,7 @@ $ python build_model.py
 $ python detect_dangerdrive.py train  
 ## Feature engineering
 ### Abnormal value handling
- - There are some abnormal values in data. For example, there are records whose speed=-1. If speed is negative value, the value is replaced with 0. Also, if speed exceeds 300km (i.e. 83.34 m/s), replace with 83.34.
+ - There are some abnormal values in data. For example, there are records whose speed=-1. If speed is negative value, the value is replaced with 0. Also, if speed exceeds 300km (i.e. 83.34 m/s), the value is replaced with 83.34.
  - There are records whose second values are same in each bookingID. (i.e. one travel records might have multiple records whose second values are same). In that case, values of a record is averaged by second.
 ### Accelerometer readings calibration
  - Accelerometer readings are affected by gravity. Effect of gravity in each axis depends on how a mobile device is inclined in a car. Hence, gravity effect is approximated by averaging accelerometer readings when speed is less than 3 percentile. Here, I assume that a car doesn't accelerate when speed is zero, or very slow. In these points of time, accelerometer measures only gravity effect. So I just calculate such a gravity effect by each drive, then subtract in each readings in order to calibration.  
