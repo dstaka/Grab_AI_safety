@@ -91,7 +91,7 @@ $ python detect_dangerdrive.py train
  - Regarding modelling algorithm, XGBoost is employed because GBDT based model is strong in cross tabular data.  
 ## Findings & insights
  - A travel time is the most important feature according to XGBoost feature importance. According to graph on ./jupyter_notebooks/model_XGBoost_all-features.ipynb, longer a drive, more a user may have more chance to feel danger. It makes sense but longer drive isn't necessarily dangerous one. A purpose of dangerous drive detection is to identify high risk driver, so we need to remove bias from labelling process. 
- - In addition, there would be individual variation whether a user feels drive is dangerous or not. Also, a user might not report to Grab even if he had dangerous travel. Thus, I'm afraid that labelling could be biased.
+ - In addition, there would be individual variation whether a user feels drive is dangerous or not. Also, a user might not report to Grab even if he had dangerous travel. Thus, one of the concerns is that labelling would be biased.
  - Therefore, we may need to think of another way in order to annotate data for supervised learning, or to detect dangerous driver by using unsupervised learning. 
 ## Use cases of the model built in the project
  - Grab provides function that enables a user to report in case that a drive was dangerous. However, there would be individual variation whether a user feels drive is dangerous or not. Also, a user might not report to Grab even if he experienced dangerous travel. Hence, the detective model can be used to identify danger drive even though a user doesn't report to Grab. By identifying a dangerous driver, Grab can alert to the driver and educate him before causing serious accident.
