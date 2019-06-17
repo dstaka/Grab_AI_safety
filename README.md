@@ -39,11 +39,11 @@ https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
 ## Procedure to run the model for testing dataset
 1. Set up Linux server  
 2. Install Python 3.6.8 and Spark 2.3.3  
-3. Install packages  
-pip install -r requirements.txt  
-4. Clone this Git repository on the server  
-5. Change directory  
+3. Clone this Git repository  
+4. Change directory  
 $ cd ./Grab_AI_safety  
+5. Install packages  
+sudo pip3 install -r requirements.txt  
 6. Download testing data file on following directories  
  - Telematics data: ./raw_data/test  
  (e.g.) ./raw_data/test/part-00000-e6120af0-10c2-4248-97c4-81baf4304e5c-c000.csv  
