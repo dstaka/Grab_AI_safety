@@ -21,7 +21,7 @@ https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
 ## Environment:
  - OS: Ubuntu 18.04.2 LTS (Bionic Beaver)  
  - Python: Python 3.6.8  
- - As for Python packagesm, refer requirement.txt  
+ - As for Python packages, refer requirement.txt  
  - Spark: Spark 2.3.3  
 ## Directories
  - config: For common config file (for logger setting)  
@@ -37,7 +37,7 @@ https://s3-ap-southeast-1.amazonaws.com/grab-aiforsea-dataset/safety.zip
  - build_model.py: For building model to detect if a drive is danger  
  - detect_dangerdrive.py: For detecting danger drive and compute AUC score given dataset and label  
 ## Procedure to run the model for testing dataset
-1. Set up Ubuntu server  
+1. Set up Linux server  
 2. Install Python 3.6.8 and Spark 2.3.3  
 3. Install packages  
 pip install -r requirements.txt  
