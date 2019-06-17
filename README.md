@@ -52,7 +52,7 @@ $ cd ./Grab_AI_safety
 7. Create features for testing dataset by running Spark job  
 $ nohup spark-submit --master local[*] --conf spark.pyspark.python=python --executor-cores 8 --executor-memory 40G --driver-memory 5G create_features.py test &  
  * executor-cores, executor-memory, and driver-memory options need to be set according to your environment  
- * Files will be created on ./dataset/train directory  
+ * Files will be created on ./dataset/test directory  
 8. Run pre-built model by running Python program  
 $ python detect_dangerdrive.py test  
 ### Note:
